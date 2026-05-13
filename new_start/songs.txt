@@ -1,0 +1,10 @@
+# songs.txt — 歌曲列表配置
+# 格式: 歌手 - 歌名
+# 以 # 开头的行为注释，将被忽略
+# 将对应的音乐文件放入 music/ 目录
+
+# 示例 (取消注释并替换为你的音乐):
+# Zhou Shen - Big Fish
+# Coldplay - A Sky Full of Stars
+# Owl City - Fireflies
+# Taylor Swift - Starlight
