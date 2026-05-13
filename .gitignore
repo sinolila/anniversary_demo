@@ -53,3 +53,23 @@ dkms.conf
 
 # debug information files
 *.dwo
+
+# ===== Project ignores =====
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# IDE
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/
+
+# Temporary files
+*.tmp
+*.bak
