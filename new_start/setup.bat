@@ -19,9 +19,19 @@ if %errorlevel% neq 0 (
 echo [*] Python 已就绪
 echo.
 
+:: Install yt-dlp (music downloader)
+echo [*] 配置音乐下载环境...
+pip install yt-dlp --quiet
+if %errorlevel% equ 0 (
+    echo [*] yt-dlp 已就绪
+) else (
+    echo [!] yt-dlp 安装失败，音乐下载功能不可用
+)
+echo.
+
 :: Run music management
 cd /d "%~dp0"
-python music_downloader.py
+python music_downloader.py list
 echo.
 
 :: Open browser
@@ -29,6 +39,10 @@ echo [*] 正在打开浏览器...
 start "" "%~dp0index.html"
 
 echo.
-echo [*] 提示: 将音乐文件放入 music 文件夹后点击「加载音乐」
-echo [*] 按 F 加载照片，按 空格 播放/暂停音乐
+echo [*] 提示:
+echo     - 拖拽照片到窗口即可加载
+echo     - 点击「🎵 音乐」加载背景音乐
+echo     - 预览照片时点击右下 🎵 绑定专属音乐
+echo     - 下载音乐: python music_downloader.py search "关键词"
+echo.
 pause

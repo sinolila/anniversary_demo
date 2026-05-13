@@ -7,304 +7,504 @@
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    background: #000;
-    overflow: hidden;
+    background: #000; overflow: hidden;
     font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    height: 100vh;
-    width: 100vw;
-    cursor: default;
-    user-select: none;
+    height: 100vh; width: 100vw; user-select: none;
   }
+
+  /* ─── Layers ─── */
   canvas#starfield { position: fixed; top: 0; left: 0; z-index: 0; }
-  #meteor-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-  #ui-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+  #petal-layer  { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+  #meteor-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
+  #ui-layer     { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
   #ui-layer > * { pointer-events: auto; }
 
-  /* Top bar */
+  /* ─── Top bar ─── */
   #top-bar {
     position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; z-index: 20;
+    background: rgba(0,0,0,0.4); backdrop-filter: blur(10px);
+    padding: 8px 16px; border-radius: 24px;
+    border: 1px solid rgba(255,255,255,0.08);
   }
   .btn {
-    padding: 8px 20px; border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 20px; background: rgba(255,255,255,0.06);
-    color: #ccc; font-size: 14px; cursor: pointer;
-    backdrop-filter: blur(10px); transition: all 0.3s;
-    white-space: nowrap;
+    padding: 6px 16px; border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 16px; background: transparent; color: #bbb; font-size: 13px;
+    cursor: pointer; transition: all 0.3s; white-space: nowrap;
   }
-  .btn:hover { background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.5); }
-  .btn.active { background: rgba(100,180,255,0.25); color: #a0d0ff; border-color: rgba(100,180,255,0.6); }
+  .btn:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.4); }
+  .btn.active { background: rgba(120,160,240,0.2); color: #a0c8ff; border-color: rgba(120,160,240,0.5); }
 
-  /* Bottom bar */
-  #music-bar {
-    position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 12px;
-    padding: 10px 20px; border-radius: 24px;
-    background: rgba(0,0,0,0.5); backdrop-filter: blur(16px);
-    border: 1px solid rgba(255,255,255,0.1);
+  /* ─── Track name ─── */
+  #track-name {
+    position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+    color: rgba(255,255,255,0.8); font-size: 14px; z-index: 20;
+    transition: opacity 1s; opacity: 0; pointer-events: none;
+    text-shadow: 0 0 12px rgba(180,200,255,0.5);
   }
-  #music-bar .btn { padding: 6px 14px; font-size: 12px; }
-  #song-info { color: #999; font-size: 13px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #volume-slider { width: 80px; accent-color: #6ab0ff; }
+  #track-name.show { opacity: 1; }
 
-  /* Welcome / empty state */
+  /* ─── Welcome ─── */
   #welcome {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    text-align: center; color: #889; animation: fadeIn 2s ease;
+    text-align: center; color: #667; animation: fadeIn 2s ease;
+    z-index: 5;
   }
-  #welcome h1 { font-size: 2.2em; font-weight: 300; letter-spacing: 0.08em; color: #c8d8f0; margin-bottom: 10px; }
-  #welcome p { font-size: 1em; margin: 6px 0; }
+  #welcome h1 { font-size: 2.2em; font-weight: 300; letter-spacing: 0.08em; color: #bcc8e8; margin-bottom: 8px; }
+  #welcome p  { font-size: 0.95em; margin: 4px 0; }
   @keyframes fadeIn { from { opacity: 0; transform: translate(-50%,-50%) translateY(20px); } to { opacity: 1; transform: translate(-50%,-50%) translateY(0); } }
 
-  /* Meteor photo */
+  /* ─── Meteor ─── */
   .meteor {
-    position: absolute; pointer-events: none;
-    transition: none;
-    filter: drop-shadow(0 0 12px rgba(180,200,255,0.7));
+    position: absolute; pointer-events: auto; cursor: pointer; z-index: 2;
+    filter: drop-shadow(0 0 18px rgba(160,200,255,0.6));
+    transition: transform 0.35s ease, filter 0.35s ease;
   }
-  .meteor img {
-    width: 100%; height: 100%; object-fit: cover;
-    border-radius: 6px;
-    box-shadow: 0 0 30px rgba(150,180,255,0.5), 0 0 60px rgba(120,160,255,0.3);
-  }
-  .meteor .trail {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    height: 3px; border-radius: 2px;
-    background: linear-gradient(90deg, rgba(180,200,255,0.9), rgba(120,160,255,0.4), transparent);
+  .meteor:hover { transform: scale(1.35); filter: drop-shadow(0 0 32px rgba(180,210,255,0.95)) brightness(1.2); z-index: 5; }
+  .meteor .glow-ring {
+    position: absolute; inset: -12px; border-radius: 50%;
+    border: 2px solid rgba(160,200,255,0.15);
+    animation: pulse-ring 2s ease-in-out infinite;
     pointer-events: none;
   }
-
-  /* Photo wall (when paused/viewing) */
-  #photo-wall {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    display: none; z-index: 20;
-    background: rgba(0,0,0,0.85); backdrop-filter: blur(20px);
-    overflow-y: auto; padding: 60px 40px;
-    flex-wrap: wrap; justify-content: center; gap: 20px; align-content: flex-start;
+  @keyframes pulse-ring {
+    0%, 100% { transform: scale(1); opacity: 0.3; }
+    50%      { transform: scale(1.12); opacity: 0.7; }
   }
-  #photo-wall.show { display: flex; }
-  #photo-wall .card {
-    width: 180px; height: 240px; border-radius: 10px; overflow: hidden;
-    cursor: pointer; transition: transform 0.3s, box-shadow 0.3s;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  .meteor img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    border-radius: 50%; /* elliptical mask */
+    box-shadow: 0 0 40px rgba(130,160,230,0.45), 0 0 80px rgba(100,140,220,0.25);
   }
-  #photo-wall .card:hover { transform: scale(1.05); box-shadow: 0 8px 30px rgba(100,150,255,0.4); }
-  #photo-wall .card img { width: 100%; height: 100%; object-fit: cover; }
-
-  /* Lightbox */
-  #lightbox {
-    position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 30;
-    background: rgba(0,0,0,0.92); display: none; justify-content: center; align-items: center;
-    cursor: pointer;
+  .meteor .trail {
+    position: absolute; top: 50%; transform: translateY(-50%); right: 102%;
+    height: 2.5px; border-radius: 2px; pointer-events: none;
+    background: linear-gradient(90deg, rgba(180,210,255,0.85), rgba(120,160,230,0.3), transparent);
   }
-  #lightbox.show { display: flex; }
-  #lightbox img { max-width: 90vw; max-height: 90vh; object-fit: contain; border-radius: 4px; box-shadow: 0 0 80px rgba(100,150,255,0.3); }
+  .meteor .spark {
+    position: absolute; width: 3px; height: 3px; border-radius: 50%;
+    background: #d0e0ff; pointer-events: none;
+    animation: spark-flicker 1.5s ease-in-out infinite;
+  }
+  @keyframes spark-flicker {
+    0%, 100% { opacity: 0.2; transform: scale(0.5); }
+    50%      { opacity: 1; transform: scale(1.2); }
+  }
 
-  /* Toast */
+  /* ─── Petals ─── */
+  .petal {
+    position: absolute; pointer-events: none; z-index: 1;
+    animation: petal-fall linear forwards;
+  }
+  @keyframes petal-fall {
+    0%   { transform: translateY(-10vh) rotate(0deg) translateX(0); opacity: 0.85; }
+    100% { transform: translateY(105vh) rotate(720deg) translateX(200px); opacity: 0; }
+  }
+
+  /* ─── Filmstrip ─── */
+  #filmstrip-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 100px; z-index: 15;
+    background: linear-gradient(transparent, rgba(0,0,0,0.7) 30%);
+    display: flex; align-items: flex-end; padding: 0 20px 14px;
+  }
+  #filmstrip {
+    display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden;
+    scroll-behavior: smooth; padding-bottom: 4px; width: 100%;
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  #filmstrip::-webkit-scrollbar { height: 4px; }
+  #filmstrip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+  .film-thumb {
+    flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px;
+    overflow: visible; cursor: pointer; position: relative;
+    transition: transform 0.25s, box-shadow 0.25s;
+    border: 2px solid transparent;
+  }
+  .film-thumb:hover, .film-thumb.selected { transform: translateY(-6px); border-color: rgba(180,210,255,0.7); box-shadow: 0 4px 16px rgba(100,140,220,0.4); }
+  .film-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+  .film-thumb .music-badge {
+    position: absolute; top: -6px; right: -6px;
+    font-size: 14px; filter: drop-shadow(0 0 4px gold);
+    display: none;
+  }
+  .film-thumb .music-badge.show { display: block; }
+
+  /* ─── Preview (lightbox) ─── */
+  #preview {
+    position: fixed; inset: 0; z-index: 30;
+    background: rgba(0,0,0,0.93); backdrop-filter: blur(16px);
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #preview.show { display: flex; }
+  #preview-media { max-width: 90vw; max-height: 78vh; object-fit: contain; border-radius: 6px; box-shadow: 0 0 80px rgba(100,140,220,0.25); }
+  #preview video { max-width: 90vw; max-height: 78vh; border-radius: 6px; }
+  #preview-close {
+    position: absolute; top: 20px; right: 28px; color: #888; font-size: 32px;
+    cursor: pointer; transition: color 0.3s; z-index: 31;
+  }
+  #preview-close:hover { color: #fff; }
+  #preview-nav { position: absolute; bottom: 140px; display: flex; gap: 20px; }
+  #preview-nav .btn { font-size: 18px; padding: 8px 18px; }
+  #preview-photo-music {
+    position: absolute; bottom: 140px; right: 30px;
+    font-size: 24px; cursor: pointer; transition: transform 0.25s; z-index: 31;
+    filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
+  }
+  #preview-photo-music:hover { transform: scale(1.2); }
+
+  /* ─── Bottom music bar ─── */
+  #music-bar {
+    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; z-index: 20;
+    padding: 8px 18px; border-radius: 20px;
+    background: rgba(0,0,0,0.45); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  #music-bar .btn { padding: 4px 10px; font-size: 12px; }
+  #song-info { color: #999; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #volume-slider { width: 60px; accent-color: #7ab0f0; }
+
+  /* ─── Toast ─── */
   #toast {
-    position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,0.75); color: #ccc; padding: 10px 24px;
-    border-radius: 20px; font-size: 14px; z-index: 99; opacity: 0; transition: opacity 0.4s;
+    position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.75); color: #ccc; padding: 8px 20px;
+    border-radius: 16px; font-size: 13px; z-index: 99; opacity: 0; transition: opacity 0.4s;
     pointer-events: none;
   }
   #toast.show { opacity: 1; }
 
-  /* Speed slider */
-  #speed-control {
-    display: flex; align-items: center; gap: 6px; color: #667; font-size: 12px;
-  }
-  #speed-slider { width: 60px; accent-color: #6ab0ff; }
+  /* ─── Speed ─── */
+  #speed-control { display: flex; align-items: center; gap: 4px; color: #667; font-size: 11px; }
+  #speed-slider { width: 50px; accent-color: #7ab0f0; }
 </style>
 </head>
 <body>
 
 <canvas id="starfield"></canvas>
+<div id="petal-layer"></div>
 <div id="meteor-layer"></div>
 
 <div id="ui-layer">
   <div id="top-bar">
-    <button class="btn active" id="btn-auto" onclick="toggleMode('auto')">流星模式</button>
-    <button class="btn" id="btn-wall" onclick="toggleMode('wall')">照片墙</button>
-    <button class="btn" id="btn-load-folder" onclick="loadFromSaved()">加载照片</button>
-    <button class="btn" id="btn-load-music" onclick="document.getElementById('music-input').click()">加载音乐</button>
+    <button class="btn" id="btn-music-upload" onclick="document.getElementById('music-input').click()">🎵 音乐</button>
+    <button class="btn active" id="btn-auto" onclick="setMode('auto')">🌠 流星</button>
+    <button class="btn" id="btn-wall" onclick="setMode('wall')">🎞 时间轴</button>
+    <button class="btn" onclick="document.getElementById('photo-input').click()">📷 加照片</button>
     <div id="speed-control">
       <span>流速</span>
-      <input type="range" id="speed-slider" min="1" max="10" value="5" oninput="updateSpeed()">
+      <input type="range" id="speed-slider" min="1" max="10" value="5" oninput="onSpeedChange()">
     </div>
   </div>
 
-  <div id="music-bar">
-    <button class="btn" id="btn-prev" onclick="prevSong()">⏮</button>
-    <button class="btn" id="btn-play" onclick="togglePlay()">▶</button>
-    <button class="btn" id="btn-next" onclick="nextSong()">⏭</button>
-    <span id="song-info">未加载音乐</span>
-    <input type="range" id="volume-slider" min="0" max="100" value="50" oninput="updateVolume()">
-    <button class="btn" id="btn-mute" onclick="toggleMute()">🔊</button>
-  </div>
+  <div id="track-name"></div>
 
   <div id="welcome">
     <h1>Memory Meteor Shower</h1>
     <p>照片化作流星，划过记忆的星空</p>
-    <p style="font-size:0.85em;color:#556;">拖拽照片到窗口 / 点击「加载照片」开始</p>
+    <p style="font-size:0.85em;color:#556;">拖拽照片到窗口 / 点击「📷 加照片」开始</p>
   </div>
+
+  <!-- Music bar -->
+  <div id="music-bar">
+    <button class="btn" onclick="prevTrack()">⏮</button>
+    <button class="btn" id="btn-play" onclick="togglePlay()">▶</button>
+    <button class="btn" onclick="nextTrack()">⏭</button>
+    <span id="song-info">未加载音乐</span>
+    <input type="range" id="volume-slider" min="0" max="100" value="50" oninput="onVolumeChange()">
+    <button class="btn" id="btn-mute" onclick="toggleMute()">🔊</button>
+  </div>
+
+  <!-- Filmstrip -->
+  <div id="filmstrip-bar"><div id="filmstrip"></div></div>
 </div>
 
-<div id="photo-wall"></div>
-<div id="lightbox" onclick="closeLightbox()"><img id="lightbox-img" src=""></div>
+<!-- Preview -->
+<div id="preview">
+  <span id="preview-close" onclick="closePreview()">✕</span>
+  <img id="preview-media" src="">
+  <div id="preview-nav">
+    <button class="btn" onclick="previewNav(-1)">←</button>
+    <button class="btn" onclick="previewNav(1)">→</button>
+  </div>
+  <span id="preview-photo-music" onclick="bindPhotoMusic()" title="为此照片绑定音乐">🎵</span>
+</div>
+
 <div id="toast"></div>
 
 <!-- Hidden inputs -->
-<input type="file" id="music-input" accept="audio/*" multiple style="display:none" onchange="handleMusicUpload(event)">
-<input type="file" id="photo-input" accept="image/*" multiple style="display:none" onchange="handlePhotoUpload(event)">
+<input type="file" id="music-input" accept="audio/*" multiple style="display:none" onchange="onMusicUpload(event)">
+<input type="file" id="photo-input" accept="image/*,video/*" multiple style="display:none" onchange="onPhotoUpload(event)">
 
 <script>
-// ==================== Starfield ====================
+// ═══════════════════════════════════════
+// Data
+// ═══════════════════════════════════════
+let photos = [];           // { url, name, time, type }  — sorted by time (old→new)
+let playlist = [];         // [{ name, url }]
+let currentTrack = -1;
+let isPlaying = false;
+let audio = new Audio();
+audio.volume = 0.5;
+
+let mode = 'auto';        // 'auto' | 'wall'
+let currentPreview = -1;
+let meteorTimer = null;
+let meteorSpeed = 5;
+let meteorInterval = 4000;
+
+// Per-photo music bindings:  photo.url → playlistTrackIndex
+let photoMusicMap = new Map();
+
+// ═══════════════════════════════════════
+// Starfield Canvas
+// ═══════════════════════════════════════
 const canvas = document.getElementById('starfield');
 const ctx = canvas.getContext('2d');
-let stars = [];
+let stars = [], shootingStars = [];
 let W, H;
 
-function resize() {
+function resizeCanvas() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
 }
-window.addEventListener('resize', () => { resize(); initStars(); });
+window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
 
 function initStars() {
   stars = [];
-  const count = Math.floor((W * H) / 800);
+  const count = Math.floor((W * H) / 600);
   for (let i = 0; i < count; i++) {
     stars.push({
       x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.8 + 0.3,
-      twinkle: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.02 + 0.005,
-      baseAlpha: Math.random() * 0.6 + 0.4
+      r: Math.random() * 1.6 + 0.3,
+      phase: Math.random() * Math.PI * 2,
+      speed: Math.random() * 0.025 + 0.005,
+      baseAlpha: Math.random() * 0.5 + 0.45
     });
   }
 }
 
-function drawStars() {
+function spawnShootingStar() {
+  return {
+    x: Math.random() * W, y: Math.random() * H * 0.5,
+    vx: (Math.random() - 0.5) * 6, vy: Math.random() * 4 + 2,
+    life: 1, decay: Math.random() * 0.015 + 0.008,
+    len: Math.random() * 80 + 40
+  };
+}
+
+function drawStars(ts) {
   ctx.clearRect(0, 0, W, H);
+
+  // Nebula glow
+  const nebulaGrad = ctx.createRadialGradient(W*0.6, H*0.3, 0, W*0.6, H*0.3, W*0.5);
+  nebulaGrad.addColorStop(0, 'rgba(30,40,80,0.15)');
+  nebulaGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = nebulaGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Twinkle stars
   for (const s of stars) {
-    s.twinkle += s.speed;
-    const alpha = s.baseAlpha + Math.sin(s.twinkle) * 0.3;
+    s.phase += s.speed;
+    const alpha = Math.max(0.08, s.baseAlpha + Math.sin(s.phase) * 0.35);
     ctx.beginPath();
     ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(200,220,255,${Math.max(0.1, alpha)})`;
+    ctx.fillStyle = `rgba(200,220,255,${alpha})`;
     ctx.fill();
+    // Glow for brighter stars
+    if (s.r > 1.2 && alpha > 0.65) {
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(180,200,240,${alpha*0.15})`;
+      ctx.fill();
+    }
   }
+
+  // Random shooting stars
+  if (Math.random() < 0.008) shootingStars.push(spawnShootingStar());
+  for (let i = shootingStars.length-1; i >= 0; i--) {
+    const ss = shootingStars[i];
+    ss.life -= ss.decay;
+    if (ss.life <= 0) { shootingStars.splice(i,1); continue; }
+    const ex = ss.x + ss.vx * ss.len;
+    const ey = ss.y + ss.vy * ss.len;
+    const grad = ctx.createLinearGradient(ss.x, ss.y, ex, ey);
+    grad.addColorStop(0, `rgba(255,255,255,${ss.life})`);
+    grad.addColorStop(1, `rgba(255,255,255,0)`);
+    ctx.beginPath(); ctx.moveTo(ss.x, ss.y); ctx.lineTo(ex, ey);
+    ctx.strokeStyle = grad; ctx.lineWidth = 1.5; ctx.stroke();
+    ss.x += ss.vx; ss.y += ss.vy;
+  }
+
   requestAnimationFrame(drawStars);
 }
 
-// ==================== Meteor System ====================
-const meteorLayer = document.getElementById('meteor-layer');
-let photoUrls = [];
-let meteors = [];
-let meteorTimer = null;
-let currentMode = 'auto';
-let meteorInterval = 4000;
-let meteorSpeed = 5; // 1-10
+// ═══════════════════════════════════════
+// Rose Petals
+// ═══════════════════════════════════════
+const petalLayer = document.getElementById('petal-layer');
+const petalColors = ['#e8a0b0','#d4788c','#f0c0d0','#c87080','#eab8c4','#d4909c'];
 
-function updateSpeed() {
+function spawnPetal() {
+  const p = document.createElement('div');
+  p.className = 'petal';
+  const size = 6 + Math.random() * 10;
+  const x = Math.random() * 100;
+  const duration = 8 + Math.random() * 12;
+  const color = petalColors[Math.floor(Math.random() * petalColors.length)];
+  p.style.cssText = `
+    width:${size}px; height:${size*1.4}px; left:${x}vw;
+    background:${color}; border-radius:50% 0 50% 0;
+    animation-duration:${duration}s;
+    transform: rotate(${Math.random()*360}deg);
+    opacity:${0.5+Math.random()*0.35};
+  `;
+  petalLayer.appendChild(p);
+  setTimeout(() => { if (p.parentNode) p.parentNode.removeChild(p); }, duration * 1000 + 500);
+}
+function initPetals() {
+  petalLayer.innerHTML = '';
+  for (let i = 0; i < 40; i++) {
+    setTimeout(() => spawnPetal(), i * 400);
+  }
+  setInterval(spawnPetal, 900);
+}
+
+// ═══════════════════════════════════════
+// Meteor Spawning
+// ═══════════════════════════════════════
+const meteorLayer = document.getElementById('meteor-layer');
+let liveMeteors = [];
+
+function onSpeedChange() {
   meteorSpeed = parseInt(document.getElementById('speed-slider').value);
-  meteorInterval = 7000 - (meteorSpeed * 550);
+  meteorInterval = 7000 - meteorSpeed * 550;
   resetMeteorTimer();
 }
-updateSpeed();
 
 function resetMeteorTimer() {
   if (meteorTimer) clearInterval(meteorTimer);
-  if (currentMode === 'auto' && photoUrls.length > 0) {
+  if (mode === 'auto' && photos.length > 0) {
     meteorTimer = setInterval(spawnMeteor, meteorInterval);
   }
 }
 
 function spawnMeteor() {
-  if (photoUrls.length === 0) return;
+  if (photos.length === 0) return;
+  const photo = photos[Math.floor(Math.random() * photos.length)];
   const el = document.createElement('div');
   el.className = 'meteor';
-  const size = 100 + Math.random() * 140;
-  const startY = Math.random() * (H - size - 100) + 50;
-  const startX = -size - Math.random() * 400;
+  const size = 100 + Math.random() * 130;
+  const startY = Math.random() * (H - size - 160) + 30;
+  const startX = -size - Math.random() * 300;
   const endX = W + size + Math.random() * 200;
   const duration = (12 - meteorSpeed) * 1000 + Math.random() * 4000;
 
   el.style.cssText = `
-    width:${size}px; height:${size*0.75}px;
+    width:${size}px; height:${size}px;
     left:${startX}px; top:${startY}px;
-    transition: left ${duration}ms linear, top ${duration*0.4}ms ease-in-out, opacity 1.5s;
+    transition: left ${duration}ms linear, top ${duration*0.35}ms ease-in-out, opacity 1.5s;
     opacity:0;
   `;
+  el.onclick = () => openPreview(photos.indexOf(photo));
 
-  const img = document.createElement('img');
-  img.src = photoUrls[Math.floor(Math.random() * photoUrls.length)];
-  img.draggable = false;
+  // Glow ring
+  const ring = document.createElement('div');
+  ring.className = 'glow-ring';
+  el.appendChild(ring);
 
+  // Trail
   const trail = document.createElement('div');
   trail.className = 'trail';
-  trail.style.cssText = `right:102%; width:${size*1.5}px;`;
-
+  trail.style.width = `${size*1.4}px`;
   el.appendChild(trail);
+
+  // Sparks around edge
+  for (let i = 0; i < 6; i++) {
+    const spark = document.createElement('div');
+    spark.className = 'spark';
+    const angle = (i / 6) * Math.PI * 2;
+    const dist = size * 0.55;
+    spark.style.cssText = `
+      left:${size/2 + Math.cos(angle)*dist - 1.5}px;
+      top:${size/2 + Math.sin(angle)*dist - 1.5}px;
+      animation-delay:${Math.random()*1.5}s;
+    `;
+    el.appendChild(spark);
+  }
+
+  // Image
+  const img = document.createElement('img');
+  img.src = photo.url;
+  img.draggable = false;
   el.appendChild(img);
+
   meteorLayer.appendChild(el);
-  meteors.push(el);
+  liveMeteors.push(el);
 
   requestAnimationFrame(() => {
     el.style.opacity = '1';
     el.style.left = `${endX}px`;
-    el.style.top = `${startY + (Math.random() - 0.5) * 200}px`;
+    el.style.top = `${startY + (Math.random()-0.5)*180}px`;
   });
 
   const removeTimer = setTimeout(() => {
     el.style.opacity = '0';
     setTimeout(() => {
       if (el.parentNode) el.parentNode.removeChild(el);
-      meteors = meteors.filter(m => m !== el);
+      liveMeteors = liveMeteors.filter(m => m !== el);
     }, 1500);
   }, duration - 1000);
-
   el._removeTimer = removeTimer;
 }
 
-function toggleMode(mode) {
-  currentMode = mode;
-  document.getElementById('btn-auto').classList.toggle('active', mode === 'auto');
-  document.getElementById('btn-wall').classList.toggle('active', mode === 'wall');
+// ═══════════════════════════════════════
+// Mode switching
+// ═══════════════════════════════════════
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-auto').classList.toggle('active', m==='auto');
+  document.getElementById('btn-wall').classList.toggle('active', m==='wall');
 
-  if (mode === 'auto') {
-    document.getElementById('photo-wall').classList.remove('show');
+  if (m === 'auto') {
+    closePreview();
+    document.getElementById('filmstrip-bar').style.display = 'flex';
     resetMeteorTimer();
   } else {
     if (meteorTimer) clearInterval(meteorTimer);
-    // Clear existing meteors
-    for (const m of meteors) { if (m.parentNode) m.parentNode.removeChild(m); }
-    meteors = [];
-    showPhotoWall();
+    for (const el of liveMeteors) { if (el.parentNode) el.parentNode.removeChild(el); }
+    liveMeteors = [];
+    document.getElementById('filmstrip-bar').style.display = 'flex';
+    renderFilmstrip();
   }
 }
 
-// ==================== Photo Management ====================
+// ═══════════════════════════════════════
+// Photo Management
+// ═══════════════════════════════════════
 function addPhotos(files) {
+  let added = 0;
   for (const f of files) {
-    if (!f.type.startsWith('image/')) continue;
+    const isVideo = f.type.startsWith('video/');
+    const isImage = f.type.startsWith('image/');
+    if (!isImage && !isVideo) continue;
     const url = URL.createObjectURL(f);
-    if (!photoUrls.includes(url)) photoUrls.push(url);
+    // Avoid duplicates
+    if (photos.some(p => p.url === url)) continue;
+    photos.push({ url, name: f.name, time: f.lastModified || Date.now(), type: isVideo ? 'video' : 'image' });
+    added++;
   }
-  document.getElementById('welcome').style.display = 'none';
-  resetMeteorTimer();
-  if (currentMode === 'auto' && photoUrls.length > 0) {
-    spawnMeteor(); // Show first one quickly
+  // Sort by time (old → new)
+  photos.sort((a, b) => a.time - b.time);
+  if (added > 0) {
+    document.getElementById('welcome').style.display = 'none';
+    renderFilmstrip();
+    resetMeteorTimer();
+    if (mode === 'auto') spawnMeteor();
+    toast(`已加载 ${photos.length} 张`);
   }
-  toast(`已加载 ${photoUrls.length} 张照片`);
 }
 
-function handlePhotoUpload(e) { if (e.target.files.length) addPhotos(e.target.files); }
-
-function loadFromSaved() {
-  // Use the photo-input to let user select (can't auto-read dir from browser)
-  document.getElementById('photo-input').click();
-}
+function onPhotoUpload(e) { if (e.target.files.length) addPhotos(e.target.files); }
 
 // Drag & drop
 document.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
@@ -313,39 +513,119 @@ document.addEventListener('drop', e => {
   if (e.dataTransfer.files.length) addPhotos(e.dataTransfer.files);
 });
 
-// ==================== Photo Wall ====================
-function showPhotoWall() {
-  const wall = document.getElementById('photo-wall');
-  wall.innerHTML = '';
-  for (const url of photoUrls) {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<img src="${url}" loading="lazy">`;
-    card.onclick = (ev) => { ev.stopPropagation(); showLightbox(url); };
-    wall.appendChild(card);
+// ═══════════════════════════════════════
+// Filmstrip
+// ═══════════════════════════════════════
+function renderFilmstrip() {
+  const strip = document.getElementById('filmstrip');
+  strip.innerHTML = '';
+  for (let i = 0; i < photos.length; i++) {
+    const p = photos[i];
+    const thumb = document.createElement('div');
+    thumb.className = 'film-thumb';
+    thumb.onclick = () => openPreview(i);
+
+    const img = document.createElement('img');
+    img.src = p.url;
+    thumb.appendChild(img);
+
+    // Music badge
+    const badge = document.createElement('span');
+    badge.className = 'music-badge';
+    badge.textContent = '🎵';
+    if (photoMusicMap.has(p.url)) badge.classList.add('show');
+    thumb.appendChild(badge);
+
+    strip.appendChild(thumb);
   }
-  wall.classList.add('show');
 }
 
-function showLightbox(url) {
-  const lb = document.getElementById('lightbox');
-  document.getElementById('lightbox-img').src = url;
-  lb.classList.add('show');
+// ═══════════════════════════════════════
+// Preview (Lightbox)
+// ═══════════════════════════════════════
+function openPreview(idx) {
+  if (idx < 0 || idx >= photos.length) return;
+  currentPreview = idx;
+  const photo = photos[idx];
+  const container = document.getElementById('preview');
+  const mediaEl = document.getElementById('preview-media');
+
+  // Remove old video if present
+  const oldVid = container.querySelector('video');
+  if (oldVid) oldVid.remove();
+  mediaEl.style.display = 'none';
+
+  if (photo.type === 'video') {
+    const vid = document.createElement('video');
+    vid.src = photo.url;
+    vid.controls = true;
+    vid.autoplay = true;
+    vid.style.cssText = 'max-width:90vw; max-height:78vh; border-radius:6px; box-shadow:0 0 80px rgba(100,140,220,0.25);';
+    container.insertBefore(vid, document.getElementById('preview-nav'));
+  } else {
+    mediaEl.src = photo.url;
+    mediaEl.style.display = '';
+  }
+  container.classList.add('show');
+
+  // Highlight filmstrip
+  document.querySelectorAll('.film-thumb').forEach((t,i) => t.classList.toggle('selected', i===idx));
+
+  // Switch to photo's bound music
+  switchToPhotoMusic(photo);
+
+  // Show track name
+  showTrackName();
 }
-function closeLightbox() { document.getElementById('lightbox').classList.remove('show'); }
 
-// ==================== Music System ====================
-let audio = new Audio();
-let playlist = [];
-let currentTrack = -1;
-let isPlaying = false;
+function closePreview() {
+  document.getElementById('preview').classList.remove('show');
+  const vid = document.querySelector('#preview video');
+  if (vid) vid.remove();
+  currentPreview = -1;
+  document.querySelectorAll('.film-thumb').forEach(t => t.classList.remove('selected'));
+  // Back to global BGM
+  restoreGlobalMusic();
+  showTrackName();
+}
 
-function handleMusicUpload(e) {
+function previewNav(dir) {
+  if (photos.length === 0) return;
+  const idx = (currentPreview + dir + photos.length) % photos.length;
+  openPreview(idx);
+}
+
+// Keyboard prev/next in preview
+document.addEventListener('keydown', e => {
+  if (currentPreview < 0) {
+    switch(e.key) {
+      case ' ': e.preventDefault(); togglePlay(); break;
+      case 'ArrowLeft': prevTrack(); break;
+      case 'ArrowRight': nextTrack(); break;
+      case 'm': case 'M': toggleMute(); break;
+      case 'Escape': break;
+    }
+    return;
+  }
+  switch(e.key) {
+    case 'Escape': closePreview(); break;
+    case 'ArrowLeft': previewNav(-1); break;
+    case 'ArrowRight': previewNav(1); break;
+    case ' ': e.preventDefault(); break;
+  }
+});
+
+// ═══════════════════════════════════════
+// Music System
+// ═══════════════════════════════════════
+let savedGlobalTrack = -1;    // Global playlist index before preview
+let savedGlobalTime = 0;
+
+function onMusicUpload(e) {
   const files = Array.from(e.target.files);
   for (const f of files) {
     if (!f.type.startsWith('audio/')) continue;
-    const url = URL.createObjectURL(f);
-    playlist.push({ name: f.name, url });
+    playlist.push({ name: f.name, url: URL.createObjectURL(f) });
   }
   if (currentTrack < 0 && playlist.length > 0) {
     currentTrack = 0;
@@ -360,58 +640,103 @@ function loadTrack() {
   const wasPlaying = isPlaying;
   audio.src = playlist[currentTrack].url;
   audio.load();
-  if (wasPlaying) audio.play().catch(() => {});
+  if (wasPlaying) audio.play().catch(()=>{});
   updateSongInfo();
+  showTrackName();
 }
 
 function togglePlay() {
   if (playlist.length === 0) { document.getElementById('music-input').click(); return; }
   if (isPlaying) { audio.pause(); isPlaying = false; }
-  else { audio.play().catch(() => {}); isPlaying = true; }
-  updatePlayBtn();
+  else { audio.play().catch(()=>{}); isPlaying = true; }
+  document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶';
+  showTrackName();
 }
-function prevSong() {
-  if (playlist.length === 0) return;
-  currentTrack = currentTrack <= 0 ? playlist.length - 1 : currentTrack - 1;
-  loadTrack();
-  if (isPlaying) audio.play().catch(() => {});
-}
-function nextSong() {
-  if (playlist.length === 0) return;
-  currentTrack = (currentTrack + 1) % playlist.length;
-  loadTrack();
-  if (isPlaying) audio.play().catch(() => {});
-}
-function updateVolume() { audio.volume = document.getElementById('volume-slider').value / 100; }
-function toggleMute() {
-  audio.muted = !audio.muted;
-  document.getElementById('btn-mute').textContent = audio.muted ? '🔇' : '🔊';
-}
-function updatePlayBtn() { document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶'; }
+
+function prevTrack() { if (playlist.length===0) return; currentTrack = currentTrack<=0 ? playlist.length-1 : currentTrack-1; loadTrack(); if(isPlaying) audio.play().catch(()=>{}); }
+function nextTrack() { if (playlist.length===0) return; currentTrack = (currentTrack+1)%playlist.length; loadTrack(); if(isPlaying) audio.play().catch(()=>{}); }
+function onVolumeChange() { audio.volume = document.getElementById('volume-slider').value / 100; }
+function toggleMute() { audio.muted = !audio.muted; document.getElementById('btn-mute').textContent = audio.muted ? '🔇' : '🔊'; }
 function updateSongInfo() {
   document.getElementById('song-info').textContent =
-    playlist.length === 0 ? '未加载音乐' :
-    currentTrack < 0 ? `${playlist.length} 首就绪` :
+    playlist.length===0 ? '未加载音乐' :
+    currentTrack<0 ? `${playlist.length} 首就绪` :
     `${currentTrack+1}/${playlist.length} ${playlist[currentTrack].name}`;
 }
 
-// Auto-play next
-audio.addEventListener('ended', () => { nextSong(); if (isPlaying) audio.play().catch(()=>{}); });
-audio.volume = 0.5;
+audio.addEventListener('ended', () => { nextTrack(); if(isPlaying) audio.play().catch(()=>{}); });
 
-// ==================== Keyboard shortcuts ====================
-document.addEventListener('keydown', e => {
-  switch(e.key.toLowerCase()) {
-    case ' ': e.preventDefault(); togglePlay(); break;
-    case 'arrowleft': prevSong(); break;
-    case 'arrowright': nextSong(); break;
-    case 'm': toggleMute(); break;
-    case 'escape': closeLightbox(); break;
-    case 'f': loadFromSaved(); break;
+// ═══════════════════════════════════════
+// Track name display (auto-fade 4s)
+// ═══════════════════════════════════════
+let trackNameTimer = null;
+function showTrackName() {
+  const el = document.getElementById('track-name');
+  const photo = currentPreview >= 0 ? photos[currentPreview] : null;
+  let text = '';
+  if (photo && photoMusicMap.has(photo.url)) {
+    const ti = photoMusicMap.get(photo.url);
+    text = `🎵 ${playlist[ti].name}  (专属)`;
+  } else if (currentTrack >= 0 && currentTrack < playlist.length) {
+    text = `🎵 ${playlist[currentTrack].name}`;
   }
-});
+  el.textContent = text;
+  if (text) { el.classList.add('show'); clearTimeout(trackNameTimer); trackNameTimer = setTimeout(() => el.classList.remove('show'), 4000); }
+  else { el.classList.remove('show'); }
+}
 
-// ==================== Toast ====================
+// ═══════════════════════════════════════
+// Per-photo music binding
+// ═══════════════════════════════════════
+function bindPhotoMusic() {
+  if (currentPreview < 0 || currentPreview >= photos.length) return;
+  if (playlist.length === 0) { toast('请先加载音乐'); return; }
+  const photo = photos[currentPreview];
+  if (photoMusicMap.has(photo.url)) {
+    photoMusicMap.delete(photo.url);
+    toast('已取消专属音乐');
+  } else {
+    photoMusicMap.set(photo.url, currentTrack);
+    toast(`已绑定: ${playlist[currentTrack].name}`);
+  }
+  renderFilmstrip();
+  showTrackName();
+}
+
+function switchToPhotoMusic(photo) {
+  if (photoMusicMap.has(photo.url)) {
+    savedGlobalTrack = currentTrack;
+    savedGlobalTime = audio.currentTime;
+    const idx = photoMusicMap.get(photo.url);
+    if (idx !== currentTrack) {
+      currentTrack = idx;
+      loadTrack();
+      if (isPlaying) audio.play().catch(()=>{});
+    }
+  }
+}
+
+function restoreGlobalMusic() {
+  if (savedGlobalTrack >= 0 && savedGlobalTrack < playlist.length) {
+    if (currentTrack !== savedGlobalTrack && !isCurrentPhotoMusic()) {
+      currentTrack = savedGlobalTrack;
+      audio.currentTime = savedGlobalTime;
+      loadTrack();
+      if (isPlaying) audio.play().catch(()=>{});
+    }
+    savedGlobalTrack = -1;
+  }
+}
+
+function isCurrentPhotoMusic() {
+  if (currentPreview < 0) return false;
+  const photo = photos[currentPreview];
+  return photo && photoMusicMap.has(photo.url) && photoMusicMap.get(photo.url) === currentTrack;
+}
+
+// ═══════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════
 function toast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
@@ -419,10 +744,13 @@ function toast(msg) {
   t._tid = setTimeout(() => t.classList.remove('show'), 2000);
 }
 
-// ==================== Init ====================
-resize();
+// ═══════════════════════════════════════
+// Init
+// ═══════════════════════════════════════
+resizeCanvas();
 initStars();
-drawStars();
+initPetals();
+drawStars(0);
 updateSongInfo();
 </script>
 </body>

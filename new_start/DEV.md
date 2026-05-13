@@ -4,63 +4,82 @@
 
 ```
 index.html (单文件)
-├── <style>        # CSS: 星空、流星、UI 组件样式
-├── <canvas>       # Canvas: 星空背景 (starfield)
-├── <div> 层       # 流星层、UI 层、照片墙、灯箱
-└── <script>       # 全部逻辑
-    ├── Starfield      # Canvas 星空渲染
-    ├── Meteor System  # 流星生成/动画/回收
-    ├── Photo Manager  # 照片加载 (File API + Object URL)
-    ├── Photo Wall     # 照片墙 + 灯箱查看
-    ├── Music System   # 音乐播放列表 (Audio API)
-    └── UI             # 键盘快捷键、Toast、模式切换
+├── <style>           # 星空/流星/花瓣/胶片条/预览 全部 CSS
+├── <canvas>          # Canvas: 星空背景 + 星云辉光 + 随机流星
+├── <div> 层           # 花瓣层 / 流星层 / UI层 / 胶片条 / 预览
+└── <script>          # 全部 JS 逻辑
+    ├── Data             # photos[], playlist[], photoMusicMap
+    ├── Starfield        # Canvas: 200+ 星星 + 星云 + 随机流星
+    ├── Petals           # 40 片玫瑰花瓣 CSS 飘落
+    ├── Meteor System    # DOM 流星: 圆形遮罩 + 光晕环 + 彗尾 + 粒子
+    ├── Filmstrip        # 底部横向胶片条 (EXIF 时间排序)
+    ├── Preview          # 全屏预览 (图片/GIF/视频)
+    ├── Music System     # 全局 BGM + 每图专属音乐绑定
+    └── UI               # Toast / 键盘快捷键 / 模式切换
 ```
 
-## 设计原则
+## 星空系统 (Canvas)
 
-1. **零依赖** — 不引入任何 npm 包、CDN、框架
-2. **单文件** — 一个 index.html 包含全部内容
-3. **双击即用** — Windows 用户双击 setup.bat 或 index.html 直接运行
-4. **本地优先** — 照片和音乐通过 File API / Object URL 加载，不上传任何数据
+- 星星数量 = `(width * height) / 600`
+- 每颗独立 sin 闪烁周期
+- 较大星星附带光晕 (径向渐变)
+- 星云辉光: 固定位置径向渐变
+- 随机流星: 概率生成，线性渐变尾迹，生命周期衰减
 
-## 星空渲染
+## 流星系统 (DOM)
 
-- Canvas 自适应窗口
-- 星星数量 = `(width * height) / 800`
-- 每颗星星独立闪烁周期 (sin 函数)
-- 60fps requestAnimationFrame 循环
+- 圆形遮罩: `border-radius: 50%`
+- 光晕环: 脉冲动画 (`pulse-ring`)
+- 彗尾: 左侧渐变 div
+- 环绕粒子: 6 个白色小点分布在圆形边缘
+- 悬停: `scale(1.35)` + 亮度增强 + 光晕放大
+- 生命周期: spawn → fly → fade → remove
 
-## 流星系统
+## 玫瑰花瓣
 
-- 动态创建 DOM 元素 (div.meteor)
-- CSS transition 控制飞行轨迹 (left, top)
-- 尾部光晕用 .trail div + linear-gradient 实现
-- 生命周期: spawn → fly → fade out → remove
-- 间隔时间 = `7000 - speed * 550` ms (speed 1~10)
+- 纯 CSS 动画 (`petal-fall`)
+- 40 片同时活跃，间隔 0.9s 补充
+- 粉色系随机颜色，不规则椭圆形状
+- 随机大小/速度/旋转
 
-## 照片管理
+## 胶片时间轴
 
-- 使用 `URL.createObjectURL()` 创建本地 Object URL
-- 支持拖拽 (drop 事件) 和文件选择器
-- 内存中维护 photoUrls 数组，不持久化
+- CSS Flexbox 水平排列
+- 按 EXIF 拍摄时间 (fallback: 文件修改时间) 左旧右新
+- `overflow-x: auto` 水平滚动
+- `.music-badge` 金色音符标记绑定音乐的照片
+
+## 预览系统
+
+- 图片: `<img>` 显示
+- GIF: 自动播放
+- 视频: `<video controls autoplay>`
+- 键盘 ← → 切换，Esc 关闭
+- 右下 🎵 按钮绑定/取消专属音乐
 
 ## 音乐系统
 
-- 基于 HTML5 Audio API
-- 播放列表模式，支持上一首/下一首
-- Auto-play 受浏览器策略限制，须用户首次交互
-- 音量控制和静音切换
+- 全局 BGM: 播放列表循环
+- 每图专属: `photoMusicMap` (URL → playlistIndex)
+- 预览时自动切换到专属音乐，关闭后回到全局 BGM
+- 曲目名称顶部显示 (4s 自动淡出)
+- Audio API 浏览器自动播放策略: 须用户首次交互
 
-## 性能注意事项
+## 设计原则
 
-- 同时最多约 5-10 个流星 DOM 节点
-- 离开页面时自动停止动画 (浏览器节流)
-- 照片 Object URL 在页面关闭时自动释放
+1. **零依赖** — 不引入 npm / CDN / 框架
+2. **单文件** — index.html 自包含一切
+3. **双击即用** — Windows 双击 index.html 或 setup.bat
+4. **本地优先** — File API + Object URL，零网络请求
+
+## music_downloader.py
+
+- 基于 yt-dlp
+- `search` / `download` / `batch` / `list` 四个子命令
+- 自动转 MP3 320kbps
+- 生成 `music/music_manifest.json`
 
 ## 兼容性
 
-- Chrome 90+
-- Firefox 90+
-- Edge 90+
-- Safari 15+
+- Chrome 90+ / Firefox 90+ / Edge 90+ / Safari 15+
 - 不支持 IE
