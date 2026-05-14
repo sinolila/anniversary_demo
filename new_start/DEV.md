@@ -3,74 +3,74 @@
 ## 架构
 
 ```
-index.html (单文件)
-├── <style>           # 星空/流星/花瓣/胶片条/预览 全部 CSS
-├── <canvas>          # Canvas: 星空背景 + 星云辉光 + 随机流星
-├── <div> 层           # 花瓣层 / 流星层 / UI层 / 胶片条 / 预览
-└── <script>          # 全部 JS 逻辑
-    ├── Data             # photos[], playlist[], photoMusicMap
-    ├── Starfield        # Canvas: 200+ 星星 + 星云 + 随机流星
-    ├── Petals           # 40 片玫瑰花瓣 CSS 飘落
-    ├── Meteor System    # DOM 流星: 圆形遮罩 + 光晕环 + 彗尾 + 粒子
-    ├── Filmstrip        # 底部横向胶片条 (EXIF 时间排序)
-    ├── Preview          # 全屏预览 (图片/GIF/视频)
-    ├── Music System     # 全局 BGM + 每图专属音乐绑定
-    └── UI               # Toast / 键盘快捷键 / 模式切换
+index.html (单文件, Canvas 渲染引擎)
+├── <style>            # UI 层 CSS: 顶栏 / 胶片条 / 预览
+├── <canvas id="scene"> # 主画布: 星空 + 流星 + 花瓣
+├── <div> UI 层         # 上传提示 / 顶栏 / 胶片条 / 预览浮层
+└── <script>           # 全部 JS 逻辑
+    ├── Starfield        # Canvas: 200+ 星星 + 15 亮星 + 4 星云团 + 随机流星
+    ├── Petals           # Canvas: 40 片玫瑰花瓣，贝塞尔曲线形状
+    ├── Meteor System    # Canvas: 椭圆遮罩光球 + 彗尾 + 光晕 + 粒子
+    ├── Hit Testing      # 鼠标/触摸碰撞检测
+    ├── Filmstrip        # HTML 底部缩略图条 (EXIF 时间排序)
+    ├── Preview          # HTML 全屏预览 (图片/GIF/视频)
+    └── Boot             # 启动: 尺寸适配 → 星空/花瓣初始化 → 渲染循环
 ```
 
-## 星空系统 (Canvas)
+## 渲染系统
 
-- 星星数量 = `(width * height) / 600`
-- 每颗独立 sin 闪烁周期
-- 较大星星附带光晕 (径向渐变)
-- 星云辉光: 固定位置径向渐变
-- 随机流星: 概率生成，线性渐变尾迹，生命周期衰减
+### 星空 (Canvas)
+- 星星数量: 200 普通星 + 15 亮星
+- 每颗星独立 sin 闪烁周期
+- 亮星 (r>1.5) 附带关联光晕
+- 4 个星云团: HSLA 径向渐变
+- 背景: 多层径向渐变模拟深空
+- 随机流星: 概率 ~0.8%/帧，线性渐变尾迹
 
-## 流星系统 (DOM)
+### 流星 (Canvas)
+- 椭圆裁剪: `ctx.ellipse()` 绘制 oval mask
+- 光晕: 外层径向渐变 + 内层径向渐变
+- 彗尾: 历史位置轨迹点 (最多 18 个)，径向渐变衰减
+- 边缘粒子: 3 个白色粒子绕椭圆边缘旋转
+- 悬停: 命中检测 → `scale(1.25)`
+- 运动: 正弦/余弦漂移 + 线性速度，屏幕边缘循环
 
-- 圆形遮罩: `border-radius: 50%`
-- 光晕环: 脉冲动画 (`pulse-ring`)
-- 彗尾: 左侧渐变 div
-- 环绕粒子: 6 个白色小点分布在圆形边缘
-- 悬停: `scale(1.35)` + 亮度增强 + 光晕放大
-- 生命周期: spawn → fly → fade → remove
+### 花瓣 (Canvas)
+- 40 片同时活跃
+- 贝塞尔曲线绘制花瓣形状
+- HSLA 粉色系着色
+- 下落 + 水平摆动 + 旋转
+- 超出底部后重置到顶部
 
-## 玫瑰花瓣
+### 胶片条 (HTML/CSS)
+- 底部固定，默认只露出一小条 (translateY)
+- hover 或 pinned 时滑出
+- 缩略图按 EXIF 时间排序
+- 选中态: 粉色边框 + 上浮 + 光晕
+- GIF 标签: 左上角粉色圆点
+- 视频标签: 左上角金色圆点
 
-- 纯 CSS 动画 (`petal-fall`)
-- 40 片同时活跃，间隔 0.9s 补充
-- 粉色系随机颜色，不规则椭圆形状
-- 随机大小/速度/旋转
-
-## 胶片时间轴
-
-- CSS Flexbox 水平排列
-- 按 EXIF 拍摄时间 (fallback: 文件修改时间) 左旧右新
-- `overflow-x: auto` 水平滚动
-- `.music-badge` 金色音符标记绑定音乐的照片
-
-## 预览系统
-
+### 预览 (HTML/CSS)
+- 全屏浮层，毛玻璃背景
 - 图片: `<img>` 显示
-- GIF: 自动播放
-- 视频: `<video controls autoplay>`
-- 键盘 ← → 切换，Esc 关闭
-- 右下 🎵 按钮绑定/取消专属音乐
+- 视频: `<video controls autoplay loop>`
+- 键盘: ←→ 切换，Esc 关闭
+- 触屏: 点击流星进入，左右按钮导航
 
-## 音乐系统
+## 照片加载
 
-- 全局 BGM: 播放列表循环
-- 每图专属: `photoMusicMap` (URL → playlistIndex)
-- 预览时自动切换到专属音乐，关闭后回到全局 BGM
-- 曲目名称顶部显示 (4s 自动淡出)
-- Audio API 浏览器自动播放策略: 须用户首次交互
+- FileReader API 读取为 Data URL
+- Image 对象预加载
+- 视频: `URL.createObjectURL()` 生成 blob URL
+- EXIF 日期: CDN 加载 exif-js，读取 DateTimeOriginal
+- 3 秒超时 → 回退到 `file.lastModified`
 
 ## 设计原则
 
-1. **零依赖** — 不引入 npm / CDN / 框架
-2. **单文件** — index.html 自包含一切
-3. **双击即用** — Windows 双击 index.html 或 setup.bat
-4. **本地优先** — File API + Object URL，零网络请求
+1. Canvas 渲染核心视觉 (星空/流星/花瓣)
+2. HTML/CSS 处理 UI 交互 (按钮/胶片条/预览)
+3. 双击 index.html 直接运行，无需服务器
+4. 单文件自包含 (除外部的 exif-js CDN)
 
 ## music_downloader.py
 
