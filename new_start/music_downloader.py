@@ -4,7 +4,8 @@
 从 YouTube 搜索/下载高品质音乐（MP3 320kbps），保存到 music/ 目录。
 
 用法:
-  python music_downloader.py search "浪漫钢琴 lofi"     # 搜索下载
+  python music_downloader.py yt "华晨宇 国王与乞丐"        # 搜索歌手+歌名，下载最佳音质
+  python music_downloader.py search "浪漫钢琴 lofi"     # 同上（别名）
   python music_downloader.py download "YouTube链接"      # 从URL下载
   python music_downloader.py batch songs.txt            # 批量下载
   python music_downloader.py list                       # 查看已下载
@@ -169,6 +170,12 @@ def cmd_search(query):
         save_manifest(manifest)
 
 
+def cmd_yt(query):
+    """yt 命令: 输入「歌手 歌名」，自动搜索 YouTube 下载最佳音质"""
+    print(f"[yt] 搜索: {query}")
+    cmd_search(query)
+
+
 def cmd_download(url):
     """从 URL 下载音乐"""
     ensure_dir()
@@ -250,6 +257,7 @@ def cmd_list():
 
 def print_usage():
     print("用法:")
+    print('  python music_downloader.py yt "华晨宇 国王与乞丐"')
     print('  python music_downloader.py search "浪漫钢琴 lofi"')
     print('  python music_downloader.py download "https://youtube.com/watch?v=..."')
     print("  python music_downloader.py batch songs.txt")
@@ -263,9 +271,10 @@ def main():
 
     command = sys.argv[1].lower()
 
-    if command == "search":
+    if command in ("yt", "search"):
         if len(sys.argv) < 3:
             print("[!] 请提供搜索关键词")
+            print('  例: python music_downloader.py yt "华晨宇 国王与乞丐"')
             print('  例: python music_downloader.py search "浪漫钢琴 lofi"')
             return
         version = check_yt_dlp()
@@ -273,7 +282,10 @@ def main():
             print("[!] 未安装 yt-dlp，请先执行: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
-        cmd_search(sys.argv[2])
+        if command == "yt":
+            cmd_yt(sys.argv[2])
+        else:
+            cmd_search(sys.argv[2])
 
     elif command == "download":
         if len(sys.argv) < 3:
