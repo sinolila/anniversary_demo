@@ -2,756 +2,760 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Memory Meteor Shower</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>纪念日时光相册 · Memory Meteor Shower</title>
+<script>
+window._EXIF_OK = false;
+window._EXIF_FAIL = false;
+</script>
+<script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.min.js"
+onload="window._EXIF_OK=true" onerror="window._EXIF_FAIL=true;console.warn('EXIF CDN unreachable')" async></script>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #000; overflow: hidden;
-    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-    height: 100vh; width: 100vw; user-select: none;
-  }
+/* ═══════════════════════════════════════════════════════════════════
+MEMORY METEOR SHOWER — 记忆流星雨
+双击 index.html 即可在 Windows 上直接运行
+═══════════════════════════════════════════════════════════════════ */
+:root {
+--bg: #06060f;
+--text: #e8e0f0;
+--muted: #8a80a0;
+--rose: #e895af;
+--gold: #f0c860;
+--film-bg: rgba(10,8,20,0.85);
+--film-border: rgba(255,255,255,0.08);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; overflow:hidden; background:var(--bg); }
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+color: var(--text);
+user-select: none;
+}
 
-  /* ─── Layers ─── */
-  canvas#starfield { position: fixed; top: 0; left: 0; z-index: 0; }
-  #petal-layer  { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-  #meteor-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; pointer-events: none; }
-  #ui-layer     { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
-  #ui-layer > * { pointer-events: auto; }
+/* ── Canvas ── */
+#scene {
+position: fixed; inset: 0; z-index: 1;
+cursor: pointer;
+}
 
-  /* ─── Top bar ─── */
-  #top-bar {
-    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; z-index: 20;
-    background: rgba(0,0,0,0.4); backdrop-filter: blur(10px);
-    padding: 8px 16px; border-radius: 24px;
-    border: 1px solid rgba(255,255,255,0.08);
-  }
-  .btn {
-    padding: 6px 16px; border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 16px; background: transparent; color: #bbb; font-size: 13px;
-    cursor: pointer; transition: all 0.3s; white-space: nowrap;
-  }
-  .btn:hover { background: rgba(255,255,255,0.12); color: #fff; border-color: rgba(255,255,255,0.4); }
-  .btn.active { background: rgba(120,160,240,0.2); color: #a0c8ff; border-color: rgba(120,160,240,0.5); }
+/* ── Upload hint (floating) ── */
+#upload-hint {
+position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+z-index: 50; pointer-events: none;
+display: flex; flex-direction: column; align-items: center;
+gap: 18px; opacity: 0; transition: opacity 0.8s;
+}
+#upload-hint.visible { opacity: 1; }
+#upload-hint .icon { font-size: 3rem; opacity: 0.5; }
+#upload-hint .text {
+color: var(--muted); font-size: 0.92rem;
+text-align: center; line-height: 1.8; letter-spacing: 0.05em;
+}
 
-  /* ─── Track name ─── */
-  #track-name {
-    position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
-    color: rgba(255,255,255,0.8); font-size: 14px; z-index: 20;
-    transition: opacity 1s; opacity: 0; pointer-events: none;
-    text-shadow: 0 0 12px rgba(180,200,255,0.5);
-  }
-  #track-name.show { opacity: 1; }
+/* ── Top bar ── */
+#topbar {
+position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+z-index: 100;
+display: flex; gap: 8px; align-items: center;
+padding: 7px 10px;
+background: var(--film-bg);
+backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+border: 1px solid var(--film-border);
+border-radius: 36px;
+}
+#topbar button {
+padding: 9px 16px; border: none; border-radius: 28px;
+background: transparent; color: var(--text);
+font-size: 0.84rem; font-weight: 500;
+cursor: pointer; transition: 0.3s; outline: none;
+white-space: nowrap; letter-spacing: 0.02em;
+}
+#topbar button:hover { background: rgba(255,255,255,0.08); }
+#topbar button:active { transform: scale(0.95); }
+#topbar .btn-upload {
+background: linear-gradient(135deg, var(--rose), #c06080);
+color: #fff; font-weight: 600;
+box-shadow: 0 4px 18px rgba(200,100,130,0.3);
+}
+#topbar .btn-upload:hover { box-shadow: 0 6px 24px rgba(200,100,130,0.5); }
+#topbar .divider { width: 1px; height: 20px; background: var(--film-border); border-radius: 1px; }
+#topbar .title { font-size: 0.85rem; font-weight: 600; padding: 0 4px; white-space: nowrap; }
 
-  /* ─── Welcome ─── */
-  #welcome {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    text-align: center; color: #667; animation: fadeIn 2s ease;
-    z-index: 5;
-  }
-  #welcome h1 { font-size: 2.2em; font-weight: 300; letter-spacing: 0.08em; color: #bcc8e8; margin-bottom: 8px; }
-  #welcome p  { font-size: 0.95em; margin: 4px 0; }
-  @keyframes fadeIn { from { opacity: 0; transform: translate(-50%,-50%) translateY(20px); } to { opacity: 1; transform: translate(-50%,-50%) translateY(0); } }
+/* ── Horizontal filmstrip ── */
+#filmstrip-wrap {
+position: fixed; bottom: 0; left: 0; right: 0; z-index: 80;
+padding: 8px 0 12px;
+background: linear-gradient(to top, rgba(6,6,15,0.95) 0%, rgba(6,6,15,0.7) 70%, transparent 100%);
+transform: translateY(calc(100% - 48px));
+transition: transform 0.45s cubic-bezier(0.4,0,0.2,1);
+}
+#filmstrip-wrap:hover,
+#filmstrip-wrap.pinned { transform: translateY(0); }
+#filmstrip-wrap .handle {
+width: 40px; height: 5px; border-radius: 3px;
+background: rgba(255,255,255,0.2);
+margin: 0 auto 10px;
+}
+#filmstrip {
+display: flex; gap: 10px; overflow-x: auto;
+padding: 0 16px 4px;
+scroll-behavior: smooth;
+-webkit-overflow-scrolling: touch;
+scrollbar-width: none;
+}
+#filmstrip::-webkit-scrollbar { display: none; }
+#filmstrip .thumb {
+flex-shrink: 0; width: 56px; height: 72px;
+border-radius: 10px; overflow: hidden;
+border: 2px solid transparent;
+cursor: pointer; transition: 0.3s;
+position: relative;
+background: rgba(255,255,255,0.04);
+}
+#filmstrip .thumb:hover,
+#filmstrip .thumb.active {
+border-color: var(--rose);
+box-shadow: 0 0 18px rgba(200,120,150,0.4);
+transform: translateY(-4px);
+}
+#filmstrip .thumb img {
+width: 100%; height: 100%; object-fit: cover;
+}
+#filmstrip .thumb .live-dot {
+position: absolute; top: 4px; right: 4px;
+width: 8px; height: 8px; border-radius: 50%;
+background: var(--rose);
+box-shadow: 0 0 6px var(--rose);
+}
+#filmstrip .thumb .vid-dot {
+position: absolute; top: 4px; right: 4px;
+width: 8px; height: 8px; border-radius: 50%;
+background: var(--gold);
+box-shadow: 0 0 6px var(--gold);
+}
+#filmstrip .thumb .thumb-date {
+position: absolute; bottom: 2px; left: 0; right: 0;
+text-align: center; font-size: 0.5rem;
+color: rgba(255,255,255,0.7);
+text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+}
 
-  /* ─── Meteor ─── */
-  .meteor {
-    position: absolute; pointer-events: auto; cursor: pointer; z-index: 2;
-    filter: drop-shadow(0 0 18px rgba(160,200,255,0.6));
-    transition: transform 0.35s ease, filter 0.35s ease;
-  }
-  .meteor:hover { transform: scale(1.35); filter: drop-shadow(0 0 32px rgba(180,210,255,0.95)) brightness(1.2); z-index: 5; }
-  .meteor .glow-ring {
-    position: absolute; inset: -12px; border-radius: 50%;
-    border: 2px solid rgba(160,200,255,0.15);
-    animation: pulse-ring 2s ease-in-out infinite;
-    pointer-events: none;
-  }
-  @keyframes pulse-ring {
-    0%, 100% { transform: scale(1); opacity: 0.3; }
-    50%      { transform: scale(1.12); opacity: 0.7; }
-  }
-  .meteor img {
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    border-radius: 50%; /* elliptical mask */
-    box-shadow: 0 0 40px rgba(130,160,230,0.45), 0 0 80px rgba(100,140,220,0.25);
-  }
-  .meteor .trail {
-    position: absolute; top: 50%; transform: translateY(-50%); right: 102%;
-    height: 2.5px; border-radius: 2px; pointer-events: none;
-    background: linear-gradient(90deg, rgba(180,210,255,0.85), rgba(120,160,230,0.3), transparent);
-  }
-  .meteor .spark {
-    position: absolute; width: 3px; height: 3px; border-radius: 50%;
-    background: #d0e0ff; pointer-events: none;
-    animation: spark-flicker 1.5s ease-in-out infinite;
-  }
-  @keyframes spark-flicker {
-    0%, 100% { opacity: 0.2; transform: scale(0.5); }
-    50%      { opacity: 1; transform: scale(1.2); }
-  }
+/* ── Fullscreen preview ── */
+#preview-overlay {
+position: fixed; inset: 0; z-index: 200;
+display: none;
+background: rgba(4,4,12,0.94);
+backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+flex-direction: column; align-items: center; justify-content: center;
+padding: 20px;
+}
+#preview-overlay.open { display: flex; }
+#preview-overlay .pv-media {
+max-width: 92vw; max-height: 76vh;
+object-fit: contain; border-radius: 14px;
+box-shadow: 0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(200,140,160,0.12);
+}
+#preview-overlay video.pv-media { min-width: 200px; }
+#preview-overlay .pv-meta {
+margin-top: 14px; color: var(--muted);
+font-size: 0.84rem; text-align: center;
+}
+#preview-overlay .pv-close,
+#preview-overlay .pv-nav {
+position: absolute; z-index: 10;
+width: 42px; height: 42px; border-radius: 50%;
+border: 1px solid rgba(255,255,255,0.12);
+background: rgba(255,255,255,0.05);
+color: #fff; font-size: 1.2rem; cursor: pointer;
+display: flex; align-items: center; justify-content: center;
+transition: 0.3s;
+}
+#preview-overlay .pv-close:hover,
+#preview-overlay .pv-nav:hover { background: rgba(255,255,255,0.14); }
+#preview-overlay .pv-close { top: 20px; right: 20px; }
+#preview-overlay .pv-nav.prev { top: 50%; left: 12px; transform: translateY(-50%); }
+#preview-overlay .pv-nav.next { top: 50%; right: 12px; transform: translateY(-50%); }
 
-  /* ─── Petals ─── */
-  .petal {
-    position: absolute; pointer-events: none; z-index: 1;
-    animation: petal-fall linear forwards;
-  }
-  @keyframes petal-fall {
-    0%   { transform: translateY(-10vh) rotate(0deg) translateX(0); opacity: 0.85; }
-    100% { transform: translateY(105vh) rotate(720deg) translateX(200px); opacity: 0; }
-  }
-
-  /* ─── Filmstrip ─── */
-  #filmstrip-bar {
-    position: absolute; bottom: 0; left: 0; right: 0; height: 100px; z-index: 15;
-    background: linear-gradient(transparent, rgba(0,0,0,0.7) 30%);
-    display: flex; align-items: flex-end; padding: 0 20px 14px;
-  }
-  #filmstrip {
-    display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden;
-    scroll-behavior: smooth; padding-bottom: 4px; width: 100%;
-    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.2) transparent;
-  }
-  #filmstrip::-webkit-scrollbar { height: 4px; }
-  #filmstrip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
-  .film-thumb {
-    flex-shrink: 0; width: 56px; height: 56px; border-radius: 8px;
-    overflow: visible; cursor: pointer; position: relative;
-    transition: transform 0.25s, box-shadow 0.25s;
-    border: 2px solid transparent;
-  }
-  .film-thumb:hover, .film-thumb.selected { transform: translateY(-6px); border-color: rgba(180,210,255,0.7); box-shadow: 0 4px 16px rgba(100,140,220,0.4); }
-  .film-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
-  .film-thumb .music-badge {
-    position: absolute; top: -6px; right: -6px;
-    font-size: 14px; filter: drop-shadow(0 0 4px gold);
-    display: none;
-  }
-  .film-thumb .music-badge.show { display: block; }
-
-  /* ─── Preview (lightbox) ─── */
-  #preview {
-    position: fixed; inset: 0; z-index: 30;
-    background: rgba(0,0,0,0.93); backdrop-filter: blur(16px);
-    display: none; flex-direction: column; align-items: center; justify-content: center;
-  }
-  #preview.show { display: flex; }
-  #preview-media { max-width: 90vw; max-height: 78vh; object-fit: contain; border-radius: 6px; box-shadow: 0 0 80px rgba(100,140,220,0.25); }
-  #preview video { max-width: 90vw; max-height: 78vh; border-radius: 6px; }
-  #preview-close {
-    position: absolute; top: 20px; right: 28px; color: #888; font-size: 32px;
-    cursor: pointer; transition: color 0.3s; z-index: 31;
-  }
-  #preview-close:hover { color: #fff; }
-  #preview-nav { position: absolute; bottom: 140px; display: flex; gap: 20px; }
-  #preview-nav .btn { font-size: 18px; padding: 8px 18px; }
-  #preview-photo-music {
-    position: absolute; bottom: 140px; right: 30px;
-    font-size: 24px; cursor: pointer; transition: transform 0.25s; z-index: 31;
-    filter: drop-shadow(0 0 6px rgba(0,0,0,0.6));
-  }
-  #preview-photo-music:hover { transform: scale(1.2); }
-
-  /* ─── Bottom music bar ─── */
-  #music-bar {
-    position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 10px; z-index: 20;
-    padding: 8px 18px; border-radius: 20px;
-    background: rgba(0,0,0,0.45); backdrop-filter: blur(10px);
-    border: 1px solid rgba(255,255,255,0.08);
-  }
-  #music-bar .btn { padding: 4px 10px; font-size: 12px; }
-  #song-info { color: #999; font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #volume-slider { width: 60px; accent-color: #7ab0f0; }
-
-  /* ─── Toast ─── */
-  #toast {
-    position: fixed; bottom: 200px; left: 50%; transform: translateX(-50%);
-    background: rgba(0,0,0,0.75); color: #ccc; padding: 8px 20px;
-    border-radius: 16px; font-size: 13px; z-index: 99; opacity: 0; transition: opacity 0.4s;
-    pointer-events: none;
-  }
-  #toast.show { opacity: 1; }
-
-  /* ─── Speed ─── */
-  #speed-control { display: flex; align-items: center; gap: 4px; color: #667; font-size: 11px; }
-  #speed-slider { width: 50px; accent-color: #7ab0f0; }
+/* ── Responsive ── */
+@media (max-width: 480px) {
+#topbar { gap: 3px; padding: 5px 6px; border-radius: 30px; }
+#topbar button { padding: 7px 10px; font-size: 0.74rem; }
+#topbar .title { font-size: 0.74rem; }
+#topbar .divider { display: none; }
+#filmstrip .thumb { width: 44px; height: 58px; border-radius: 8px; }
+}
 </style>
 </head>
 <body>
 
-<canvas id="starfield"></canvas>
-<div id="petal-layer"></div>
-<div id="meteor-layer"></div>
+<canvas id="scene"></canvas>
 
-<div id="ui-layer">
-  <div id="top-bar">
-    <button class="btn" id="btn-music-upload" onclick="document.getElementById('music-input').click()">🎵 音乐</button>
-    <button class="btn active" id="btn-auto" onclick="setMode('auto')">🌠 流星</button>
-    <button class="btn" id="btn-wall" onclick="setMode('wall')">🎞 时间轴</button>
-    <button class="btn" onclick="document.getElementById('photo-input').click()">📷 加照片</button>
-    <div id="speed-control">
-      <span>流速</span>
-      <input type="range" id="speed-slider" min="1" max="10" value="5" oninput="onSpeedChange()">
-    </div>
-  </div>
+<!-- Upload hint -->
+<div id="upload-hint" class="visible">
+<div class="icon">💫</div>
+<p class="text">点击右上角「上传」<br>让回忆化作流星</p>
+</div>
 
-  <div id="track-name"></div>
+<!-- Top bar -->
+<div id="topbar">
+<span class="title">💫 记忆流星雨</span>
+<span class="divider"></span>
+<button onclick="document.getElementById('file-input').click()" class="btn-upload">+ 上传</button>
+</div>
+<input type="file" id="file-input" multiple accept="image/*,video/*,.gif" style="display:none" onchange="handleFiles(this.files)">
 
-  <div id="welcome">
-    <h1>Memory Meteor Shower</h1>
-    <p>照片化作流星，划过记忆的星空</p>
-    <p style="font-size:0.85em;color:#556;">拖拽照片到窗口 / 点击「📷 加照片」开始</p>
-  </div>
-
-  <!-- Music bar -->
-  <div id="music-bar">
-    <button class="btn" onclick="prevTrack()">⏮</button>
-    <button class="btn" id="btn-play" onclick="togglePlay()">▶</button>
-    <button class="btn" onclick="nextTrack()">⏭</button>
-    <span id="song-info">未加载音乐</span>
-    <input type="range" id="volume-slider" min="0" max="100" value="50" oninput="onVolumeChange()">
-    <button class="btn" id="btn-mute" onclick="toggleMute()">🔊</button>
-  </div>
-
-  <!-- Filmstrip -->
-  <div id="filmstrip-bar"><div id="filmstrip"></div></div>
+<!-- Filmstrip -->
+<div id="filmstrip-wrap">
+<div class="handle"></div>
+<div id="filmstrip"></div>
 </div>
 
 <!-- Preview -->
-<div id="preview">
-  <span id="preview-close" onclick="closePreview()">✕</span>
-  <img id="preview-media" src="">
-  <div id="preview-nav">
-    <button class="btn" onclick="previewNav(-1)">←</button>
-    <button class="btn" onclick="previewNav(1)">→</button>
-  </div>
-  <span id="preview-photo-music" onclick="bindPhotoMusic()" title="为此照片绑定音乐">🎵</span>
+<div id="preview-overlay">
+<button class="pv-close" onclick="closePreview()">✕</button>
+<button class="pv-nav prev" onclick="navPreview(-1)">◀</button>
+<button class="pv-nav next" onclick="navPreview(1)">▶</button>
+<div id="preview-media-wrap"></div>
+<div class="pv-meta" id="preview-meta"></div>
 </div>
 
-<div id="toast"></div>
-
-<!-- Hidden inputs -->
-<input type="file" id="music-input" accept="audio/*" multiple style="display:none" onchange="onMusicUpload(event)">
-<input type="file" id="photo-input" accept="image/*,video/*" multiple style="display:none" onchange="onPhotoUpload(event)">
-
 <script>
-// ═══════════════════════════════════════
-// Data
-// ═══════════════════════════════════════
-let photos = [];           // { url, name, time, type }  — sorted by time (old→new)
-let playlist = [];         // [{ name, url }]
-let currentTrack = -1;
-let isPlaying = false;
-let audio = new Audio();
-audio.volume = 0.5;
+/* ═══════════════════════════════════════════════════════════════════
+METEOR SHOWER ENGINE
+═══════════════════════════════════════════════════════════════════ */
 
-let mode = 'auto';        // 'auto' | 'wall'
-let currentPreview = -1;
-let meteorTimer = null;
-let meteorSpeed = 5;
-let meteorInterval = 4000;
+// ── Polyfill ──
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
+if (typeof r==='number') r={tl:r,tr:r,br:r,bl:r};
+this.beginPath(); this.moveTo(x+r.tl,y); this.lineTo(x+w-r.tr,y);
+this.quadraticCurveTo(x+w,y,x+w,y+r.tr); this.lineTo(x+w,y+h-r.br);
+this.quadraticCurveTo(x+w,y+h,x+w-r.br,y+h); this.lineTo(x+r.bl,y+h);
+this.quadraticCurveTo(x,y+h,x,y+h-r.bl); this.lineTo(x,y+r.tl);
+this.quadraticCurveTo(x,y,x+r.tl,y); this.closePath();
+};
+}
 
-// Per-photo music bindings:  photo.url → playlistTrackIndex
-let photoMusicMap = new Map();
+// ── State ──
+const photos = [];         // { id, name, dataUrl, dateTaken, type, img/video, isGif, isVideo }
+let meteors = [];          // { photoIdx, x, y, vx, vy, size, trail:[], hue, phase, opacity, fadeIn }
+let previewIdx = -1;
+let animId = null;
+let time = 0;
+let hoveredMeteor = null;
+let mouseX = -100, mouseY = -100;
 
-// ═══════════════════════════════════════
-// Starfield Canvas
-// ═══════════════════════════════════════
-const canvas = document.getElementById('starfield');
+// DOM
+const canvas = document.getElementById('scene');
 const ctx = canvas.getContext('2d');
-let stars = [], shootingStars = [];
-let W, H;
+const filmstrip = document.getElementById('filmstrip');
+const filmstripWrap = document.getElementById('filmstrip-wrap');
+const uploadHint = document.getElementById('upload-hint');
+const previewOverlay = document.getElementById('preview-overlay');
 
-function resizeCanvas() {
-  W = canvas.width = window.innerWidth;
-  H = canvas.height = window.innerHeight;
-}
-window.addEventListener('resize', () => { resizeCanvas(); initStars(); });
+// ═══════════════════════════════════════════════════════════════════
+// FILE HANDLING
+// ═══════════════════════════════════════════════════════════════════
+async function handleFiles(files) {
+if (!files || !files.length) return;
+uploadHint.classList.remove('visible');
 
-function initStars() {
-  stars = [];
-  const count = Math.floor((W * H) / 600);
-  for (let i = 0; i < count; i++) {
-    stars.push({
-      x: Math.random() * W, y: Math.random() * H,
-      r: Math.random() * 1.6 + 0.3,
-      phase: Math.random() * Math.PI * 2,
-      speed: Math.random() * 0.025 + 0.005,
-      baseAlpha: Math.random() * 0.5 + 0.45
-    });
-  }
-}
+const batch = [];
+for (const f of files) {
+const isVideo = f.type.startsWith('video/');
+const isGif = f.type === 'image/gif';
+const dataUrl = isVideo ? null : await readBlob(f);
+const date = await getExifDate(f);
+let img = null, video = null;
 
-function spawnShootingStar() {
-  return {
-    x: Math.random() * W, y: Math.random() * H * 0.5,
-    vx: (Math.random() - 0.5) * 6, vy: Math.random() * 4 + 2,
-    life: 1, decay: Math.random() * 0.015 + 0.008,
-    len: Math.random() * 80 + 40
-  };
+if (isVideo) {
+video = URL.createObjectURL(f);
+} else {
+img = await loadImg(dataUrl);
 }
 
-function drawStars(ts) {
-  ctx.clearRect(0, 0, W, H);
-
-  // Nebula glow
-  const nebulaGrad = ctx.createRadialGradient(W*0.6, H*0.3, 0, W*0.6, H*0.3, W*0.5);
-  nebulaGrad.addColorStop(0, 'rgba(30,40,80,0.15)');
-  nebulaGrad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = nebulaGrad;
-  ctx.fillRect(0, 0, W, H);
-
-  // Twinkle stars
-  for (const s of stars) {
-    s.phase += s.speed;
-    const alpha = Math.max(0.08, s.baseAlpha + Math.sin(s.phase) * 0.35);
-    ctx.beginPath();
-    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(200,220,255,${alpha})`;
-    ctx.fill();
-    // Glow for brighter stars
-    if (s.r > 1.2 && alpha > 0.65) {
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(180,200,240,${alpha*0.15})`;
-      ctx.fill();
-    }
-  }
-
-  // Random shooting stars
-  if (Math.random() < 0.008) shootingStars.push(spawnShootingStar());
-  for (let i = shootingStars.length-1; i >= 0; i--) {
-    const ss = shootingStars[i];
-    ss.life -= ss.decay;
-    if (ss.life <= 0) { shootingStars.splice(i,1); continue; }
-    const ex = ss.x + ss.vx * ss.len;
-    const ey = ss.y + ss.vy * ss.len;
-    const grad = ctx.createLinearGradient(ss.x, ss.y, ex, ey);
-    grad.addColorStop(0, `rgba(255,255,255,${ss.life})`);
-    grad.addColorStop(1, `rgba(255,255,255,0)`);
-    ctx.beginPath(); ctx.moveTo(ss.x, ss.y); ctx.lineTo(ex, ey);
-    ctx.strokeStyle = grad; ctx.lineWidth = 1.5; ctx.stroke();
-    ss.x += ss.vx; ss.y += ss.vy;
-  }
-
-  requestAnimationFrame(drawStars);
-}
-
-// ═══════════════════════════════════════
-// Rose Petals
-// ═══════════════════════════════════════
-const petalLayer = document.getElementById('petal-layer');
-const petalColors = ['#e8a0b0','#d4788c','#f0c0d0','#c87080','#eab8c4','#d4909c'];
-
-function spawnPetal() {
-  const p = document.createElement('div');
-  p.className = 'petal';
-  const size = 6 + Math.random() * 10;
-  const x = Math.random() * 100;
-  const duration = 8 + Math.random() * 12;
-  const color = petalColors[Math.floor(Math.random() * petalColors.length)];
-  p.style.cssText = `
-    width:${size}px; height:${size*1.4}px; left:${x}vw;
-    background:${color}; border-radius:50% 0 50% 0;
-    animation-duration:${duration}s;
-    transform: rotate(${Math.random()*360}deg);
-    opacity:${0.5+Math.random()*0.35};
-  `;
-  petalLayer.appendChild(p);
-  setTimeout(() => { if (p.parentNode) p.parentNode.removeChild(p); }, duration * 1000 + 500);
-}
-function initPetals() {
-  petalLayer.innerHTML = '';
-  for (let i = 0; i < 40; i++) {
-    setTimeout(() => spawnPetal(), i * 400);
-  }
-  setInterval(spawnPetal, 900);
-}
-
-// ═══════════════════════════════════════
-// Meteor Spawning
-// ═══════════════════════════════════════
-const meteorLayer = document.getElementById('meteor-layer');
-let liveMeteors = [];
-
-function onSpeedChange() {
-  meteorSpeed = parseInt(document.getElementById('speed-slider').value);
-  meteorInterval = 7000 - meteorSpeed * 550;
-  resetMeteorTimer();
-}
-
-function resetMeteorTimer() {
-  if (meteorTimer) clearInterval(meteorTimer);
-  if (mode === 'auto' && photos.length > 0) {
-    meteorTimer = setInterval(spawnMeteor, meteorInterval);
-  }
-}
-
-function spawnMeteor() {
-  if (photos.length === 0) return;
-  const photo = photos[Math.floor(Math.random() * photos.length)];
-  const el = document.createElement('div');
-  el.className = 'meteor';
-  const size = 100 + Math.random() * 130;
-  const startY = Math.random() * (H - size - 160) + 30;
-  const startX = -size - Math.random() * 300;
-  const endX = W + size + Math.random() * 200;
-  const duration = (12 - meteorSpeed) * 1000 + Math.random() * 4000;
-
-  el.style.cssText = `
-    width:${size}px; height:${size}px;
-    left:${startX}px; top:${startY}px;
-    transition: left ${duration}ms linear, top ${duration*0.35}ms ease-in-out, opacity 1.5s;
-    opacity:0;
-  `;
-  el.onclick = () => openPreview(photos.indexOf(photo));
-
-  // Glow ring
-  const ring = document.createElement('div');
-  ring.className = 'glow-ring';
-  el.appendChild(ring);
-
-  // Trail
-  const trail = document.createElement('div');
-  trail.className = 'trail';
-  trail.style.width = `${size*1.4}px`;
-  el.appendChild(trail);
-
-  // Sparks around edge
-  for (let i = 0; i < 6; i++) {
-    const spark = document.createElement('div');
-    spark.className = 'spark';
-    const angle = (i / 6) * Math.PI * 2;
-    const dist = size * 0.55;
-    spark.style.cssText = `
-      left:${size/2 + Math.cos(angle)*dist - 1.5}px;
-      top:${size/2 + Math.sin(angle)*dist - 1.5}px;
-      animation-delay:${Math.random()*1.5}s;
-    `;
-    el.appendChild(spark);
-  }
-
-  // Image
-  const img = document.createElement('img');
-  img.src = photo.url;
-  img.draggable = false;
-  el.appendChild(img);
-
-  meteorLayer.appendChild(el);
-  liveMeteors.push(el);
-
-  requestAnimationFrame(() => {
-    el.style.opacity = '1';
-    el.style.left = `${endX}px`;
-    el.style.top = `${startY + (Math.random()-0.5)*180}px`;
-  });
-
-  const removeTimer = setTimeout(() => {
-    el.style.opacity = '0';
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-      liveMeteors = liveMeteors.filter(m => m !== el);
-    }, 1500);
-  }, duration - 1000);
-  el._removeTimer = removeTimer;
-}
-
-// ═══════════════════════════════════════
-// Mode switching
-// ═══════════════════════════════════════
-function setMode(m) {
-  mode = m;
-  document.getElementById('btn-auto').classList.toggle('active', m==='auto');
-  document.getElementById('btn-wall').classList.toggle('active', m==='wall');
-
-  if (m === 'auto') {
-    closePreview();
-    document.getElementById('filmstrip-bar').style.display = 'flex';
-    resetMeteorTimer();
-  } else {
-    if (meteorTimer) clearInterval(meteorTimer);
-    for (const el of liveMeteors) { if (el.parentNode) el.parentNode.removeChild(el); }
-    liveMeteors = [];
-    document.getElementById('filmstrip-bar').style.display = 'flex';
-    renderFilmstrip();
-  }
-}
-
-// ═══════════════════════════════════════
-// Photo Management
-// ═══════════════════════════════════════
-function addPhotos(files) {
-  let added = 0;
-  for (const f of files) {
-    const isVideo = f.type.startsWith('video/');
-    const isImage = f.type.startsWith('image/');
-    if (!isImage && !isVideo) continue;
-    const url = URL.createObjectURL(f);
-    // Avoid duplicates
-    if (photos.some(p => p.url === url)) continue;
-    photos.push({ url, name: f.name, time: f.lastModified || Date.now(), type: isVideo ? 'video' : 'image' });
-    added++;
-  }
-  // Sort by time (old → new)
-  photos.sort((a, b) => a.time - b.time);
-  if (added > 0) {
-    document.getElementById('welcome').style.display = 'none';
-    renderFilmstrip();
-    resetMeteorTimer();
-    if (mode === 'auto') spawnMeteor();
-    toast(`已加载 ${photos.length} 张`);
-  }
-}
-
-function onPhotoUpload(e) { if (e.target.files.length) addPhotos(e.target.files); }
-
-// Drag & drop
-document.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
-document.addEventListener('drop', e => {
-  e.preventDefault(); e.stopPropagation();
-  if (e.dataTransfer.files.length) addPhotos(e.dataTransfer.files);
+batch.push({
+id: Date.now() + Math.random(),
+name: f.name, dataUrl, dateTaken: date,
+type: isVideo ? 'video' : 'image',
+isGif, isVideo,
+img, video,
+videoBlob: isVideo ? f : null,
 });
-
-// ═══════════════════════════════════════
-// Filmstrip
-// ═══════════════════════════════════════
-function renderFilmstrip() {
-  const strip = document.getElementById('filmstrip');
-  strip.innerHTML = '';
-  for (let i = 0; i < photos.length; i++) {
-    const p = photos[i];
-    const thumb = document.createElement('div');
-    thumb.className = 'film-thumb';
-    thumb.onclick = () => openPreview(i);
-
-    const img = document.createElement('img');
-    img.src = p.url;
-    thumb.appendChild(img);
-
-    // Music badge
-    const badge = document.createElement('span');
-    badge.className = 'music-badge';
-    badge.textContent = '🎵';
-    if (photoMusicMap.has(p.url)) badge.classList.add('show');
-    thumb.appendChild(badge);
-
-    strip.appendChild(thumb);
-  }
 }
 
-// ═══════════════════════════════════════
-// Preview (Lightbox)
-// ═══════════════════════════════════════
+for (const p of batch) photos.push(p);
+photos.sort((a,b) => a.dateTaken - b.dateTaken);
+spawnMeteors();
+renderFilmstrip();
+}
+
+function readBlob(file) {
+return new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(file); });
+}
+function loadImg(src) {
+return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
+}
+
+async function getExifDate(file) {
+if (window._EXIF_OK && typeof EXIF !== 'undefined') {
+try {
+const d = await new Promise(resolve => {
+EXIF.getData(file, function() {
+const ds = EXIF.getTag(this, 'DateTimeOriginal');
+if (ds) {
+const pd = new Date(ds.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3'));
+if (!isNaN(pd.getTime())) { resolve(pd); return; }
+}
+resolve(null);
+});
+});
+if (d) return d;
+} catch(e) { /* fallback */ }
+}
+return new Date(file.lastModified || Date.now());
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// STARFIELD
+// ═══════════════════════════════════════════════════════════════════
+let stars = [], nebulaBlobs = [];
+
+function initStarfield(w, h) {
+stars = [];
+for (let i = 0; i < 200; i++) {
+stars.push({
+x: Math.random()*w, y: Math.random()*h,
+r: Math.random()*1.8+0.3,
+twinkle: Math.random()*0.025+0.006,
+phase: Math.random()*Math.PI*2,
+hue: 240 + Math.random()*120,
+});
+}
+// Bright accent stars
+for (let i = 0; i < 15; i++) {
+stars.push({
+x: Math.random()*w, y: Math.random()*h*0.5,
+r: Math.random()*2.8+1.2,
+twinkle: Math.random()*0.04+0.015,
+phase: Math.random()*Math.PI*2,
+hue: 30 + Math.random()*50,
+});
+}
+nebulaBlobs = [];
+for (let i = 0; i < 4; i++) {
+nebulaBlobs.push({
+x: Math.random()*w, y: Math.random()*h,
+r: 100+Math.random()*220,
+hue: [280,320,340,200,35][i],
+alpha: 0.03+Math.random()*0.04,
+});
+}
+}
+
+function drawStarfield(ctx, w, h, t) {
+// Deep space
+const bg = ctx.createRadialGradient(w*0.35, h*0.3, w*0.05, w*0.5, h*0.5, w*1.3);
+bg.addColorStop(0, '#100d24');
+bg.addColorStop(0.5, '#090714');
+bg.addColorStop(1, '#04030c');
+ctx.fillStyle = bg; ctx.fillRect(0,0,w,h);
+
+// Nebula
+for (const n of nebulaBlobs) {
+const g = ctx.createRadialGradient(n.x, n.y, n.r*0.05, n.x, n.y, n.r);
+g.addColorStop(0, `hsla(${n.hue},55%,55%,${n.alpha*1.6})`);
+g.addColorStop(1, 'transparent');
+ctx.fillStyle = g; ctx.beginPath(); ctx.arc(n.x,n.y,n.r,0,Math.PI*2); ctx.fill();
+}
+
+// Stars
+for (const s of stars) {
+const tw = Math.sin(t*s.twinkle+s.phase)*0.5+0.5;
+ctx.fillStyle = `hsla(${s.hue},35%,88%,${0.25+tw*0.75})`;
+ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+if (s.r>1.5 && tw>0.75) {
+ctx.fillStyle = `hsla(${s.hue},50%,92%,${tw*0.18})`;
+ctx.beginPath(); ctx.arc(s.x,s.y,s.r*3.5,0,Math.PI*2); ctx.fill();
+}
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ROSE PETALS
+// ═══════════════════════════════════════════════════════════════════
+let petals = [];
+function initPetals(w, h) {
+petals = [];
+for (let i = 0; i < 40; i++) {
+petals.push({
+x: Math.random()*w*1.3-w*0.15, y: Math.random()*-h-20,
+s: 3+Math.random()*8, vy: 0.25+Math.random()*0.8,
+sway: 0.007+Math.random()*0.02, swayAmp: 0.3+Math.random()*1.4,
+swayPh: Math.random()*Math.PI*2, rot: Math.random()*Math.PI*2,
+rotV: (Math.random()-0.5)*0.03, hue: 340+Math.random()*35, a: 0.35+Math.random()*0.45,
+});
+}
+}
+function drawPetals(ctx, w, h, t) {
+for (const p of petals) {
+p.y += p.vy; p.x += Math.sin(t*p.sway*8+p.swayPh)*p.swayAmp; p.rot += p.rotV;
+if (p.y>h+50) { p.y=-30; p.x=Math.random()*w*1.3-w*0.15; }
+ctx.save(); ctx.globalAlpha = p.a; ctx.translate(p.x,p.y); ctx.rotate(p.rot);
+const s = p.s;
+ctx.fillStyle = `hsl(${p.hue},70%,76%)`;
+ctx.beginPath();
+ctx.moveTo(0,-s); ctx.bezierCurveTo(s*0.6,-s*0.7,s*0.8,-s*0.2,0,s*0.6);
+ctx.bezierCurveTo(-s*0.8,-s*0.2,-s*0.6,-s*0.7,0,-s);
+ctx.fill();
+ctx.restore();
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// METEOR SYSTEM
+// ═══════════════════════════════════════════════════════════════════
+function spawnMeteors() {
+const w = innerWidth, h = innerHeight;
+meteors = photos.map((p, i) => {
+// Spread initial positions across the sky
+const angle = (i/photos.length)*Math.PI*2 + Math.random()*0.5;
+const dist = 0.25 + Math.random()*0.5;
+return {
+photoIdx: i,
+x: w*0.1 + Math.random()*w*0.8,
+y: h*0.1 + Math.random()*h*0.5,
+vx: (Math.random()-0.5)*0.35,
+vy: 0.15 + Math.random()*0.4,
+size: 32 + Math.random()*20,
+trail: [],
+hue: (i*37+180)%360,
+phase: Math.random()*Math.PI*2,
+opacity: 0,
+fadeIn: true,
+life: 0,
+};
+});
+}
+
+function updateMeteors(w, h) {
+for (const m of meteors) {
+m.life += 0.005;
+
+// Fade in
+if (m.fadeIn) {
+m.opacity += 0.008;
+if (m.opacity >= 0.85) { m.opacity = 0.85; m.fadeIn = false; }
+}
+
+// Gentle sinusoidal drift
+const swayX = Math.sin(time*0.012 + m.phase) * 0.3;
+const swayY = Math.cos(time*0.009 + m.phase) * 0.15;
+
+m.x += m.vx + swayX;
+m.y += m.vy + swayY;
+
+// Wrap around edges
+if (m.x < -60) m.x = w + 40;
+if (m.x > w + 60) m.x = -40;
+if (m.y < -60) m.y = h + 40;
+if (m.y > h + 60) m.y = -40;
+
+// Trail
+m.trail.push({ x: m.x, y: m.y, a: 1 });
+if (m.trail.length > 18) m.trail.shift();
+for (const t of m.trail) t.a *= 0.88;
+}
+}
+
+function drawMeteors(ctx, w, h) {
+// Sort by y for depth
+const sorted = [...meteors].sort((a,b) => a.y - b.y);
+
+for (const m of sorted) {
+if (m.opacity < 0.02) continue;
+const p = photos[m.photoIdx];
+if (!p) continue;
+
+ctx.save();
+ctx.globalAlpha = m.opacity;
+
+const s = m.size;
+
+// ── Trail ──
+if (m.trail.length > 1) {
+for (let i = 1; i < m.trail.length; i++) {
+const t = m.trail[i];
+const ta = t.a * 0.5;
+if (ta < 0.01) continue;
+const trailS = s * 0.3 * (i / m.trail.length);
+const grad = ctx.createRadialGradient(t.x, t.y, 0, t.x, t.y, trailS);
+grad.addColorStop(0, `rgba(255,220,180,${ta})`);
+grad.addColorStop(0.5, `rgba(255,180,200,${ta*0.5})`);
+grad.addColorStop(1, 'transparent');
+ctx.fillStyle = grad;
+ctx.beginPath(); ctx.arc(t.x, t.y, trailS, 0, Math.PI*2); ctx.fill();
+}
+}
+
+// ── Outer glow ──
+const glow = ctx.createRadialGradient(m.x, m.y, s*0.15, m.x, m.y, s*1.4);
+glow.addColorStop(0, `rgba(255,240,220,${0.5})`);
+glow.addColorStop(0.3, `rgba(255,200,180,${0.25})`);
+glow.addColorStop(0.6, `rgba(200,160,200,${0.08})`);
+glow.addColorStop(1, 'transparent');
+ctx.fillStyle = glow;
+ctx.beginPath(); ctx.arc(m.x, m.y, s*1.4, 0, Math.PI*2); ctx.fill();
+
+// ── Photo orb (oval mask) ──
+const orbW = s * 0.9;
+const orbH = s * 1.05;
+
+// Hover scale
+let scale = 1;
+if (hoveredMeteor === m) {
+scale = 1.25;
+}
+
+ctx.save();
+ctx.translate(m.x, m.y);
+ctx.scale(scale, scale);
+
+// Orb border glow
+ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+ctx.lineWidth = 1.2;
+ctx.beginPath();
+ctx.ellipse(0, 0, orbW, orbH, 0, 0, Math.PI*2);
+ctx.stroke();
+
+// Clip to oval
+ctx.beginPath();
+ctx.ellipse(0, 0, orbW-2, orbH-2, 0, 0, Math.PI*2);
+ctx.clip();
+
+// Draw photo thumbnail
+if (p.img) {
+// For GIF images, the img object handles animation natively in the expanded view
+// In meteor form we just draw the current frame
+const iw = p.img.width, ih = p.img.height;
+const imgScale = Math.max((orbW*2)/iw, (orbH*2)/ih);
+const dw = iw * imgScale, dh = ih * imgScale;
+ctx.drawImage(p.img, -dw/2, -dh/2, dw, dh);
+
+// Overlay gradient for depth
+const overlay = ctx.createRadialGradient(0, 0, orbW*0.4, 0, 0, orbW);
+overlay.addColorStop(0, 'transparent');
+overlay.addColorStop(1, 'rgba(10,8,20,0.3)');
+ctx.fillStyle = overlay;
+ctx.fillRect(-orbW, -orbH, orbW*2, orbH*2);
+} else if (p.isVideo) {
+// Video indicator
+ctx.fillStyle = 'rgba(0,0,0,0.4)';
+ctx.fillRect(-orbW, -orbH, orbW*2, orbH*2);
+ctx.fillStyle = '#fff';
+ctx.font = `${orbW*0.6}px sans-serif`;
+ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+ctx.fillText('▶', 0, 0);
+}
+
+ctx.restore();
+
+// ── Sparkle points ──
+const sparkCount = 3;
+for (let i = 0; i < sparkCount; i++) {
+const sa = time*3 + i*2.1 + m.phase;
+const sr = s * (0.8 + Math.sin(sa)*0.3);
+const sx = m.x + Math.cos(sa)*sr;
+const sy = m.y + Math.sin(sa)*sr*0.7;
+const sparkAlpha = 0.3 + Math.sin(sa*1.7)*0.3;
+ctx.fillStyle = `rgba(255,255,240,${sparkAlpha})`;
+ctx.beginPath(); ctx.arc(sx, sy, 1.2, 0, Math.PI*2); ctx.fill();
+}
+
+ctx.restore();
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// HIT TESTING
+// ═══════════════════════════════════════════════════════════════════
+function hitTestMeteor(mx, my) {
+let best = null, bestDist = 50;
+// Check in reverse (top-most first)
+for (let i = meteors.length-1; i >= 0; i--) {
+const m = meteors[i];
+if (m.opacity < 0.1) continue;
+const dist = Math.hypot(mx - m.x, my - m.y);
+if (dist < m.size * 1.5 && dist < bestDist) {
+bestDist = dist; best = m;
+}
+}
+return best;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FILMSTRIP (horizontal timeline)
+// ═══════════════════════════════════════════════════════════════════
+function renderFilmstrip() {
+filmstrip.innerHTML = photos.map((p, i) => `
+<div class="thumb" onclick="openPreview(${i})" data-idx="${i}">
+${p.isGif ? '<div class="live-dot"></div>' : ''}
+${p.isVideo ? '<div class="vid-dot"></div>' : ''}
+<img src="${p.isVideo ? '' : p.dataUrl}" alt="">
+<div class="thumb-date">${fmtShort(p.dateTaken)}</div>
+</div>
+`).join('');
+
+// Show filmstrip
+filmstripWrap.classList.add('pinned');
+setTimeout(() => filmstripWrap.classList.remove('pinned'), 3000);
+}
+
+function highlightFilmstrip(idx) {
+const thumbs = filmstrip.querySelectorAll('.thumb');
+thumbs.forEach((t, i) => t.classList.toggle('active', i === idx));
+if (idx >= 0) {
+const thumb = thumbs[idx];
+if (thumb) thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PREVIEW
+// ═══════════════════════════════════════════════════════════════════
 function openPreview(idx) {
-  if (idx < 0 || idx >= photos.length) return;
-  currentPreview = idx;
-  const photo = photos[idx];
-  const container = document.getElementById('preview');
-  const mediaEl = document.getElementById('preview-media');
+previewIdx = idx;
+const p = photos[idx];
+const wrap = document.getElementById('preview-media-wrap');
 
-  // Remove old video if present
-  const oldVid = container.querySelector('video');
-  if (oldVid) oldVid.remove();
-  mediaEl.style.display = 'none';
+if (p.isVideo) {
+wrap.innerHTML = `<video class="pv-media" src="${p.video}" controls autoplay loop playsinline></video>`;
+} else {
+wrap.innerHTML = `<img class="pv-media" src="${p.dataUrl}" alt="${p.name}">`;
+}
 
-  if (photo.type === 'video') {
-    const vid = document.createElement('video');
-    vid.src = photo.url;
-    vid.controls = true;
-    vid.autoplay = true;
-    vid.style.cssText = 'max-width:90vw; max-height:78vh; border-radius:6px; box-shadow:0 0 80px rgba(100,140,220,0.25);';
-    container.insertBefore(vid, document.getElementById('preview-nav'));
-  } else {
-    mediaEl.src = photo.url;
-    mediaEl.style.display = '';
-  }
-  container.classList.add('show');
-
-  // Highlight filmstrip
-  document.querySelectorAll('.film-thumb').forEach((t,i) => t.classList.toggle('selected', i===idx));
-
-  // Switch to photo's bound music
-  switchToPhotoMusic(photo);
-
-  // Show track name
-  showTrackName();
+document.getElementById('preview-meta').textContent =
+`${p.name} · ${fmtDate(p.dateTaken)} · ${idx+1}/${photos.length}`;
+previewOverlay.classList.add('open');
+highlightFilmstrip(idx);
 }
 
 function closePreview() {
-  document.getElementById('preview').classList.remove('show');
-  const vid = document.querySelector('#preview video');
-  if (vid) vid.remove();
-  currentPreview = -1;
-  document.querySelectorAll('.film-thumb').forEach(t => t.classList.remove('selected'));
-  // Back to global BGM
-  restoreGlobalMusic();
-  showTrackName();
+previewOverlay.classList.remove('open');
+const wrap = document.getElementById('preview-media-wrap');
+wrap.innerHTML = '';
+previewIdx = -1;
 }
 
-function previewNav(dir) {
-  if (photos.length === 0) return;
-  const idx = (currentPreview + dir + photos.length) % photos.length;
-  openPreview(idx);
+function navPreview(d) {
+if (!photos.length) return;
+previewIdx = (previewIdx + d + photos.length) % photos.length;
+openPreview(previewIdx);
 }
 
-// Keyboard prev/next in preview
-document.addEventListener('keydown', e => {
-  if (currentPreview < 0) {
-    switch(e.key) {
-      case ' ': e.preventDefault(); togglePlay(); break;
-      case 'ArrowLeft': prevTrack(); break;
-      case 'ArrowRight': nextTrack(); break;
-      case 'm': case 'M': toggleMute(); break;
-      case 'Escape': break;
-    }
-    return;
-  }
-  switch(e.key) {
-    case 'Escape': closePreview(); break;
-    case 'ArrowLeft': previewNav(-1); break;
-    case 'ArrowRight': previewNav(1); break;
-    case ' ': e.preventDefault(); break;
-  }
+// ═══════════════════════════════════════════════════════════════════
+// MOUSE / TOUCH
+// ═══════════════════════════════════════════════════════════════════
+canvas.addEventListener('mousemove', e => {
+const rect = canvas.getBoundingClientRect();
+mouseX = e.clientX - rect.left;
+mouseY = e.clientY - rect.top;
+hoveredMeteor = hitTestMeteor(mouseX, mouseY);
+canvas.style.cursor = hoveredMeteor ? 'pointer' : 'default';
 });
 
-// ═══════════════════════════════════════
-// Music System
-// ═══════════════════════════════════════
-let savedGlobalTrack = -1;    // Global playlist index before preview
-let savedGlobalTime = 0;
+canvas.addEventListener('mouseleave', () => {
+hoveredMeteor = null;
+mouseX = -100; mouseY = -100;
+});
 
-function onMusicUpload(e) {
-  const files = Array.from(e.target.files);
-  for (const f of files) {
-    if (!f.type.startsWith('audio/')) continue;
-    playlist.push({ name: f.name, url: URL.createObjectURL(f) });
-  }
-  if (currentTrack < 0 && playlist.length > 0) {
-    currentTrack = 0;
-    loadTrack();
-  }
-  updateSongInfo();
-  toast(`已加载 ${playlist.length} 首音乐`);
+canvas.addEventListener('click', e => {
+if (!photos.length) return;
+const rect = canvas.getBoundingClientRect();
+const mx = e.clientX - rect.left;
+const my = e.clientY - rect.top;
+const hit = hitTestMeteor(mx, my);
+if (hit) {
+openPreview(hit.photoIdx);
+}
+});
+
+// Touch
+canvas.addEventListener('touchmove', e => {
+e.preventDefault();
+const rect = canvas.getBoundingClientRect();
+mouseX = e.touches[0].clientX - rect.left;
+mouseY = e.touches[0].clientY - rect.top;
+hoveredMeteor = hitTestMeteor(mouseX, mouseY);
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+if (hoveredMeteor) {
+openPreview(hoveredMeteor.photoIdx);
+hoveredMeteor = null;
+}
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// KEYBOARD
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+if (!previewOverlay.classList.contains('open')) return;
+if (e.key === 'Escape') closePreview();
+if (e.key === 'ArrowLeft') navPreview(-1);
+if (e.key === 'ArrowRight') navPreview(1);
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// RENDER LOOP
+// ═══════════════════════════════════════════════════════════════════
+function resize() {
+const dpr = devicePixelRatio || 1;
+const w = innerWidth, h = innerHeight;
+canvas.width = w * dpr; canvas.height = h * dpr;
+canvas.style.width = w+'px'; canvas.style.height = h+'px';
+ctx.setTransform(1,0,0,1,0,0);
+ctx.scale(dpr, dpr);
+initStarfield(w, h);
+initPetals(w, h);
+return { w, h };
 }
 
-function loadTrack() {
-  if (currentTrack < 0 || currentTrack >= playlist.length) return;
-  const wasPlaying = isPlaying;
-  audio.src = playlist[currentTrack].url;
-  audio.load();
-  if (wasPlaying) audio.play().catch(()=>{});
-  updateSongInfo();
-  showTrackName();
+let size = resize();
+window.addEventListener('resize', () => { size = resize(); });
+
+function loop(ms) {
+time = ms * 0.001;
+const { w, h } = size;
+
+drawStarfield(ctx, w, h, time);
+if (photos.length > 0) {
+updateMeteors(w, h);
+drawMeteors(ctx, w, h);
+}
+drawPetals(ctx, w, h, time);
+
+animId = requestAnimationFrame(loop);
 }
 
-function togglePlay() {
-  if (playlist.length === 0) { document.getElementById('music-input').click(); return; }
-  if (isPlaying) { audio.pause(); isPlaying = false; }
-  else { audio.play().catch(()=>{}); isPlaying = true; }
-  document.getElementById('btn-play').textContent = isPlaying ? '⏸' : '▶';
-  showTrackName();
+// ═══════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function fmtDate(d) {
+return d.getFullYear()+'年'+String(d.getMonth()+1).padStart(2,'0')+'月'+
+String(d.getDate()).padStart(2,'0')+'日 '+String(d.getHours()).padStart(2,'0')+':'+
+String(d.getMinutes()).padStart(2,'0');
 }
 
-function prevTrack() { if (playlist.length===0) return; currentTrack = currentTrack<=0 ? playlist.length-1 : currentTrack-1; loadTrack(); if(isPlaying) audio.play().catch(()=>{}); }
-function nextTrack() { if (playlist.length===0) return; currentTrack = (currentTrack+1)%playlist.length; loadTrack(); if(isPlaying) audio.play().catch(()=>{}); }
-function onVolumeChange() { audio.volume = document.getElementById('volume-slider').value / 100; }
-function toggleMute() { audio.muted = !audio.muted; document.getElementById('btn-mute').textContent = audio.muted ? '🔇' : '🔊'; }
-function updateSongInfo() {
-  document.getElementById('song-info').textContent =
-    playlist.length===0 ? '未加载音乐' :
-    currentTrack<0 ? `${playlist.length} 首就绪` :
-    `${currentTrack+1}/${playlist.length} ${playlist[currentTrack].name}`;
+function fmtShort(d) {
+return (d.getMonth()+1)+'/'+d.getDate();
 }
 
-audio.addEventListener('ended', () => { nextTrack(); if(isPlaying) audio.play().catch(()=>{}); });
-
-// ═══════════════════════════════════════
-// Track name display (auto-fade 4s)
-// ═══════════════════════════════════════
-let trackNameTimer = null;
-function showTrackName() {
-  const el = document.getElementById('track-name');
-  const photo = currentPreview >= 0 ? photos[currentPreview] : null;
-  let text = '';
-  if (photo && photoMusicMap.has(photo.url)) {
-    const ti = photoMusicMap.get(photo.url);
-    text = `🎵 ${playlist[ti].name}  (专属)`;
-  } else if (currentTrack >= 0 && currentTrack < playlist.length) {
-    text = `🎵 ${playlist[currentTrack].name}`;
-  }
-  el.textContent = text;
-  if (text) { el.classList.add('show'); clearTimeout(trackNameTimer); trackNameTimer = setTimeout(() => el.classList.remove('show'), 4000); }
-  else { el.classList.remove('show'); }
-}
-
-// ═══════════════════════════════════════
-// Per-photo music binding
-// ═══════════════════════════════════════
-function bindPhotoMusic() {
-  if (currentPreview < 0 || currentPreview >= photos.length) return;
-  if (playlist.length === 0) { toast('请先加载音乐'); return; }
-  const photo = photos[currentPreview];
-  if (photoMusicMap.has(photo.url)) {
-    photoMusicMap.delete(photo.url);
-    toast('已取消专属音乐');
-  } else {
-    photoMusicMap.set(photo.url, currentTrack);
-    toast(`已绑定: ${playlist[currentTrack].name}`);
-  }
-  renderFilmstrip();
-  showTrackName();
-}
-
-function switchToPhotoMusic(photo) {
-  if (photoMusicMap.has(photo.url)) {
-    savedGlobalTrack = currentTrack;
-    savedGlobalTime = audio.currentTime;
-    const idx = photoMusicMap.get(photo.url);
-    if (idx !== currentTrack) {
-      currentTrack = idx;
-      loadTrack();
-      if (isPlaying) audio.play().catch(()=>{});
-    }
-  }
-}
-
-function restoreGlobalMusic() {
-  if (savedGlobalTrack >= 0 && savedGlobalTrack < playlist.length) {
-    if (currentTrack !== savedGlobalTrack && !isCurrentPhotoMusic()) {
-      currentTrack = savedGlobalTrack;
-      audio.currentTime = savedGlobalTime;
-      loadTrack();
-      if (isPlaying) audio.play().catch(()=>{});
-    }
-    savedGlobalTrack = -1;
-  }
-}
-
-function isCurrentPhotoMusic() {
-  if (currentPreview < 0) return false;
-  const photo = photos[currentPreview];
-  return photo && photoMusicMap.has(photo.url) && photoMusicMap.get(photo.url) === currentTrack;
-}
-
-// ═══════════════════════════════════════
-// Toast
-// ═══════════════════════════════════════
-function toast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(t._tid);
-  t._tid = setTimeout(() => t.classList.remove('show'), 2000);
-}
-
-// ═══════════════════════════════════════
-// Init
-// ═══════════════════════════════════════
-resizeCanvas();
-initStars();
-initPetals();
-drawStars(0);
-updateSongInfo();
+// ═══════════════════════════════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════════════════════════════
+setTimeout(() => { if (!window._EXIF_OK) window._EXIF_FAIL = true; }, 3000);
+animId = requestAnimationFrame(loop);
 </script>
 </body>
 </html>
