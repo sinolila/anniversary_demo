@@ -78,6 +78,10 @@ color: #fff; font-weight: 600;
 box-shadow: 0 4px 18px rgba(200,100,130,0.3);
 }
 #topbar .btn-upload:hover { box-shadow: 0 6px 24px rgba(200,100,130,0.5); }
+	#topbar .btn-music {
+	background: rgba(255,255,255,0.06); font-size: 1rem;
+	}
+	#topbar .btn-music:hover { background: rgba(255,255,255,0.14); }
 #topbar .divider { width: 1px; height: 20px; background: var(--film-border); border-radius: 1px; }
 #topbar .title { font-size: 0.85rem; font-weight: 600; padding: 0 4px; white-space: nowrap; }
 
@@ -176,6 +180,44 @@ transition: 0.3s;
 #preview-overlay .pv-nav.prev { top: 50%; left: 12px; transform: translateY(-50%); }
 #preview-overlay .pv-nav.next { top: 50%; right: 12px; transform: translateY(-50%); }
 
+	/* ── Music bar ── */
+	#music-bar {
+	position: fixed; bottom: 0; left: 0; right: 0; z-index: 90;
+	padding: 10px 16px;
+	background: linear-gradient(to top, rgba(6,6,15,0.95), rgba(6,6,15,0.75));
+	backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+	border-top: 1px solid var(--film-border);
+	display: flex; align-items: center; gap: 10px;
+	transform: translateY(100%);
+	transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+	}
+	#music-bar.open { transform: translateY(0); }
+	#music-bar .mu-btn {
+	width: 34px; height: 34px; border-radius: 50%;
+	border: 1px solid rgba(255,255,255,0.15);
+	background: rgba(255,255,255,0.05); color: #ddd;
+	font-size: 0.85rem; cursor: pointer;
+	display: flex; align-items: center; justify-content: center;
+	transition: 0.25s; flex-shrink: 0;
+	}
+	#music-bar .mu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+	#music-bar .mu-btn.active { background: rgba(200,130,160,0.25); border-color: var(--rose); color: var(--rose); }
+	#music-bar .mu-info {
+	flex: 1; min-width: 0; font-size: 0.78rem; color: var(--muted);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+	}
+	#music-bar .mu-vol { width: 64px; accent-color: var(--rose); }
+	#music-bar .mu-mode {
+	padding: 3px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);
+	background: transparent; color: #999; font-size: 0.65rem; cursor: pointer;
+	transition: 0.25s; flex-shrink: 0; min-width: 32px; text-align: center;
+	}
+	#music-bar .mu-mode:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+	#music-bar .mu-mode.active { color: var(--gold); border-color: var(--gold); }
+
+	/* Push filmstrip up when music bar is open */
+	#music-bar.open ~ #filmstrip-wrap { bottom: 60px; }
+
 /* ── Responsive ── */
 @media (max-width: 480px) {
 #topbar { gap: 3px; padding: 5px 6px; border-radius: 30px; }
@@ -201,8 +243,21 @@ transition: 0.3s;
 <span class="title">💫 记忆流星雨</span>
 <span class="divider"></span>
 <button onclick="document.getElementById('file-input').click()" class="btn-upload">+ 上传</button>
+	<button onclick="document.getElementById('music-input').click()" class="btn-music" id="btn-music-toggle">🎵</button>
 </div>
 <input type="file" id="file-input" multiple accept="image/*,video/*,.gif" style="display:none" onchange="handleFiles(this.files)">
+	<input type="file" id="music-input" multiple accept="audio/*" style="display:none" onchange="handleMusicFiles(this.files)">
+
+<!-- Music bar -->
+<div id="music-bar">
+<button class="mu-btn" onclick="prevTrack()" title="上一首">⏮</button>
+<button class="mu-btn" id="mu-play" onclick="togglePlay()" title="播放/暂停">▶</button>
+<button class="mu-btn" onclick="nextTrack()" title="下一首">⏭</button>
+<span class="mu-info" id="mu-info">未加载音乐</span>
+<button class="mu-mode" id="mu-shuffle" onclick="toggleShuffle()" title="随机播放">🔀</button>
+<button class="mu-mode" id="mu-loop" onclick="toggleLoop()" title="循环模式">🔁</button>
+<input type="range" class="mu-vol" id="mu-vol" min="0" max="100" value="60" oninput="onVolChange()" title="音量">
+</div>
 
 <!-- Filmstrip -->
 <div id="filmstrip-wrap">
@@ -700,10 +755,17 @@ hoveredMeteor = null;
 // KEYBOARD
 // ═══════════════════════════════════════════════════════════════════
 document.addEventListener('keydown', e => {
-if (!previewOverlay.classList.contains('open')) return;
+if (previewOverlay.classList.contains('open')) {
 if (e.key === 'Escape') closePreview();
 if (e.key === 'ArrowLeft') navPreview(-1);
 if (e.key === 'ArrowRight') navPreview(1);
+return;
+}
+// Music shortcuts (when preview closed)
+if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+if (e.key === 'ArrowLeft') prevTrack();
+if (e.key === 'ArrowRight') nextTrack();
+if (e.key === 'm' || e.key === 'M') document.getElementById('music-bar').classList.toggle('open');
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -737,6 +799,116 @@ drawPetals(ctx, w, h, time);
 
 animId = requestAnimationFrame(loop);
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// MUSIC PLAYER
+// ═══════════════════════════════════════════════════════════════════
+let playlist = [];       // [{ name, url }]
+let trackIdx = -1;
+let audio = new Audio();
+audio.volume = 0.6;
+let shuffle = false;
+let loopMode = 0;       // 0=none, 1=one, 2=all
+
+function handleMusicFiles(files) {
+  if (!files || !files.length) return;
+  for (const f of files) {
+    if (!f.type.startsWith('audio/')) continue;
+    playlist.push({ name: f.name, url: URL.createObjectURL(f) });
+  }
+  if (trackIdx < 0 && playlist.length > 0) { trackIdx = 0; loadTrack(); }
+  updateMusicUI();
+  document.getElementById('music-bar').classList.add('open');
+  toast('已加载 ' + playlist.length + ' 首音乐');
+}
+
+function loadTrack() {
+  if (trackIdx < 0 || trackIdx >= playlist.length) return;
+  const wasPlaying = !audio.paused;
+  audio.src = playlist[trackIdx].url;
+  audio.load();
+  if (wasPlaying) audio.play().catch(() => {});
+  updateMusicUI();
+}
+
+function togglePlay() {
+  if (playlist.length === 0) {
+    document.getElementById('music-input').click();
+    return;
+  }
+  if (audio.paused) { audio.play().catch(() => {}); }
+  else { audio.pause(); }
+  updateMusicUI();
+}
+
+function prevTrack() {
+  if (playlist.length === 0) return;
+  if (shuffle) {
+    trackIdx = Math.floor(Math.random() * playlist.length);
+  } else {
+    trackIdx = trackIdx <= 0 ? playlist.length - 1 : trackIdx - 1;
+  }
+  loadTrack();
+}
+
+function nextTrack() {
+  if (playlist.length === 0) return;
+  if (shuffle) {
+    trackIdx = Math.floor(Math.random() * playlist.length);
+  } else {
+    trackIdx = (trackIdx + 1) % playlist.length;
+  }
+  loadTrack();
+}
+
+function toggleShuffle() {
+  shuffle = !shuffle;
+  document.getElementById('mu-shuffle').classList.toggle('active', shuffle);
+}
+
+function toggleLoop() {
+  loopMode = (loopMode + 1) % 3;
+  const btn = document.getElementById('mu-loop');
+  btn.classList.remove('active');
+  if (loopMode === 1) { btn.textContent = '🔂'; btn.classList.add('active'); }
+  else if (loopMode === 2) { btn.textContent = '🔁'; btn.classList.add('active'); }
+  else { btn.textContent = '🔁'; }
+}
+
+function onVolChange() {
+  audio.volume = document.getElementById('mu-vol').value / 100;
+}
+
+function updateMusicUI() {
+  document.getElementById('mu-play').textContent = audio.paused ? '▶' : '⏸';
+  const info = document.getElementById('mu-info');
+  if (playlist.length === 0) {
+    info.textContent = '未加载音乐';
+  } else if (trackIdx < 0 || trackIdx >= playlist.length) {
+    info.textContent = playlist.length + ' 首就绪';
+  } else {
+    info.textContent = (trackIdx + 1) + '/' + playlist.length + ' ' + playlist[trackIdx].name;
+  }
+}
+
+audio.addEventListener('ended', () => {
+  if (loopMode === 1) { audio.currentTime = 0; audio.play().catch(() => {}); }
+  else if (loopMode === 2 && trackIdx === playlist.length - 1) { trackIdx = -1; }
+  if (loopMode !== 1) nextTrack();
+  if (!audio.paused || loopMode === 1) { audio.play().catch(() => {}); updateMusicUI(); }
+});
+
+audio.addEventListener('play', updateMusicUI);
+audio.addEventListener('pause', updateMusicUI);
+
+// Toggle music bar visibility
+document.getElementById('btn-music-toggle').addEventListener('click', function(e) {
+  if (playlist.length === 0) {
+    document.getElementById('music-input').click();
+    return;
+  }
+  document.getElementById('music-bar').classList.toggle('open');
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // HELPERS

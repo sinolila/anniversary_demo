@@ -4,9 +4,9 @@
 
 ```
 index.html (单文件, Canvas 渲染引擎)
-├── <style>            # UI 层 CSS: 顶栏 / 胶片条 / 预览
+├── <style>            # UI 层 CSS: 顶栏 / 音乐栏 / 胶片条 / 预览
 ├── <canvas id="scene"> # 主画布: 星空 + 流星 + 花瓣
-├── <div> UI 层         # 上传提示 / 顶栏 / 胶片条 / 预览浮层
+├── <div> UI 层         # 上传提示 / 顶栏 / 音乐控制栏 / 胶片条 / 预览浮层
 └── <script>           # 全部 JS 逻辑
     ├── Starfield        # Canvas: 200+ 星星 + 15 亮星 + 4 星云团 + 随机流星
     ├── Petals           # Canvas: 40 片玫瑰花瓣，贝塞尔曲线形状
@@ -14,7 +14,8 @@ index.html (单文件, Canvas 渲染引擎)
     ├── Hit Testing      # 鼠标/触摸碰撞检测
     ├── Filmstrip        # HTML 底部缩略图条 (EXIF 时间排序)
     ├── Preview          # HTML 全屏预览 (图片/GIF/视频)
-    └── Boot             # 启动: 尺寸适配 → 星空/花瓣初始化 → 渲染循环
+    ├── Music Player     # HTML5 Audio: 播放列表 / 随机 / 循环 (none/one/all)
+    └── Boot             # 启动: 尺寸适配 → 初始化 → 渲染循环
 ```
 
 ## 渲染系统
@@ -71,6 +72,19 @@ index.html (单文件, Canvas 渲染引擎)
 2. HTML/CSS 处理 UI 交互 (按钮/胶片条/预览)
 3. 双击 index.html 直接运行，无需服务器
 4. 单文件自包含 (除外部的 exif-js CDN)
+
+## 键盘快捷键
+
+- **预览打开时**: ←→ 切换，Esc 关闭
+- **预览关闭时**: 空格 播放/暂停，←→ 切歌，M 开关音乐栏
+
+## 音乐播放器
+
+- HTML5 Audio API，播放列表 `playlist[]` 存 `{name, url}`
+- 循环模式: 0=关闭, 1=单曲循环, 2=列表循环
+- 随机播放: `shuffle` 布尔值，切歌时随机选曲
+- 自动下一首: `audio.ended` 事件驱动
+- UI: 底部可折叠音乐栏，默认隐藏，加载后展开
 
 ## music_downloader.py
 
