@@ -5,6 +5,7 @@
 
 用法:
   python music_downloader.py yt "华晨宇 国王与乞丐"        # 搜索歌手+歌名，下载最佳音质
+  python music_downloader.py --cookies chrome yt "..."   # 指定浏览器 Cookie (防验证码)
   python music_downloader.py search "浪漫钢琴 lofi"     # 同上（别名）
   python music_downloader.py download "YouTube链接"      # 从URL下载
   python music_downloader.py batch songs.txt            # 批量下载
@@ -49,7 +50,7 @@ def check_yt_dlp():
     try:
         result = subprocess.run(
             [sys.executable, "-m", "yt_dlp", "--version"],
-            capture_output=True, text=True, timeout=10
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -59,7 +60,7 @@ def check_yt_dlp():
     try:
         result = subprocess.run(
             ["yt-dlp", "--version"],
-            capture_output=True, text=True, timeout=10
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -68,6 +69,31 @@ def check_yt_dlp():
 
     return None
 
+
+def detect_browser_cookies():
+    """自动检测可用的浏览器 Cookie 源。
+    返回 (browser_name, is_available) 或 (None, False)
+    """
+    import shutil as _shutil
+    browsers = ["chrome", "firefox", "brave", "edge", "chromium", "opera", "vivaldi"]
+    for browser in browsers:
+        # Check if cookies-from-browser works for this browser
+        try:
+            # Use yt-dlp's built-in check: list extractors with cookies flag
+            ytdlp = build_yt_dlp_cmd()
+            result = subprocess.run(
+                ytdlp + ["--cookies-from-browser", browser, "--print", "cookies_used"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=30,
+                env={**os.environ, "HOME": os.path.expanduser("~")}
+            )
+            # Even if it returns non-zero, it might still work
+            # The real test is the output doesn't contain "could not"
+            err = result.stderr.lower()
+            if "could not" not in err and "no such" not in err and "unsupported" not in err:
+                return browser, True
+        except Exception:
+            continue
+    return None, False
 
 def sanitize_filename(name):
     """清理文件名中的非法字符"""
@@ -79,14 +105,15 @@ def sanitize_filename(name):
 def build_yt_dlp_cmd():
     """构建 yt-dlp 基础命令"""
     if subprocess.run([sys.executable, "-m", "yt_dlp", "--version"],
-                      capture_output=True, timeout=5).returncode == 0:
+                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5).returncode == 0:
         return [sys.executable, "-m", "yt_dlp"]
     return ["yt-dlp"]
 
 
-def download_audio(query_or_url, search_mode=False):
+def download_audio(query_or_url, search_mode=False, cookies_browser=None):
     """
     下载单首音乐。
+    cookies_browser: 浏览器名称 (chrome/firefox/brave/...) 用于提取 Cookie
     返回 (title, filename) 或 (None, None)
     """
     ensure_dir()
@@ -106,6 +133,10 @@ def download_audio(query_or_url, search_mode=False):
         "--print", "title",
     ]
 
+    # 浏览器 Cookie 认证
+    if cookies_browser:
+        cmd += ["--cookies-from-browser", cookies_browser]
+
     if search_mode:
         cmd += ["ytsearch1:" + query_or_url]
     else:
@@ -116,7 +147,7 @@ def download_audio(query_or_url, search_mode=False):
     print()
 
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=300)
         if result.returncode != 0:
             err = result.stderr.strip()
             if err:
@@ -156,10 +187,10 @@ def download_audio(query_or_url, search_mode=False):
         return None, None
 
 
-def cmd_search(query):
+def cmd_search(query, cookies_browser=None):
     """搜索并下载第一首匹配的音乐"""
     ensure_dir()
-    title, filename = download_audio(query, search_mode=True)
+    title, filename = download_audio(query, search_mode=True, cookies_browser=cookies_browser)
     if title and filename:
         manifest = load_manifest()
         manifest[filename] = {
@@ -170,16 +201,16 @@ def cmd_search(query):
         save_manifest(manifest)
 
 
-def cmd_yt(query):
+def cmd_yt(query, cookies_browser=None):
     """yt 命令: 输入「歌手 歌名」，自动搜索 YouTube 下载最佳音质"""
     print(f"[yt] 搜索: {query}")
-    cmd_search(query)
+    cmd_search(query, cookies_browser=cookies_browser)
 
 
-def cmd_download(url):
+def cmd_download(url, cookies_browser=None):
     """从 URL 下载音乐"""
     ensure_dir()
-    title, filename = download_audio(url, search_mode=False)
+    title, filename = download_audio(url, search_mode=False, cookies_browser=cookies_browser)
     if title and filename:
         manifest = load_manifest()
         manifest[filename] = {
@@ -190,7 +221,7 @@ def cmd_download(url):
         save_manifest(manifest)
 
 
-def cmd_batch(songs_file):
+def cmd_batch(songs_file, cookies_browser=None):
     """批量下载 songs.txt 中的音乐"""
     if not os.path.exists(songs_file):
         print(f"[!] 文件不存在: {songs_file}")
@@ -204,7 +235,7 @@ def cmd_batch(songs_file):
 
     for i, line in enumerate(lines, 1):
         print(f"[{i}/{len(lines)}] {line}")
-        title, filename = download_audio(line, search_mode=True)
+        title, filename = download_audio(line, search_mode=True, cookies_browser=cookies_browser)
         if title and filename:
             manifest = load_manifest()
             manifest[filename] = {
@@ -269,10 +300,37 @@ def main():
         print_usage()
         return
 
-    command = sys.argv[1].lower()
+    # Parse --cookies BROWSER flag
+    cookies_browser = None
+    args = sys.argv[1:]
+    if "--cookies" in args:
+        idx = args.index("--cookies")
+        if idx + 1 < len(args):
+            cookies_browser = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+            print(f"[*] 使用 Cookie 来源: {cookies_browser}")
+    elif "-c" in args:
+        idx = args.index("-c")
+        if idx + 1 < len(args):
+            cookies_browser = args[idx + 1]
+            args = args[:idx] + args[idx + 2:]
+            print(f"[*] 使用 Cookie 来源: {cookies_browser}")
+
+    if not args:
+        print_usage()
+        return
+
+    # Auto-detect browser cookies if not specified
+    if cookies_browser is None:
+        detected, _ = detect_browser_cookies()
+        if detected:
+            cookies_browser = detected
+            print(f"[*] 自动检测浏览器: {detected}")
+
+    command = args[0].lower()
 
     if command in ("yt", "search"):
-        if len(sys.argv) < 3:
+        if len(args) < 2:
             print("[!] 请提供搜索关键词")
             print('  例: python music_downloader.py yt "华晨宇 国王与乞丐"')
             print('  例: python music_downloader.py search "浪漫钢琴 lofi"')
@@ -283,12 +341,12 @@ def main():
             return
         print(f"[*] yt-dlp {version}")
         if command == "yt":
-            cmd_yt(sys.argv[2])
+            cmd_yt(args[1], cookies_browser=cookies_browser)
         else:
-            cmd_search(sys.argv[2])
+            cmd_search(args[1], cookies_browser=cookies_browser)
 
     elif command == "download":
-        if len(sys.argv) < 3:
+        if len(args) < 2:
             print("[!] 请提供 YouTube URL")
             print('  例: python music_downloader.py download "https://youtube.com/watch?v=..."')
             return
@@ -297,16 +355,16 @@ def main():
             print("[!] 未安装 yt-dlp，请先执行: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
-        cmd_download(sys.argv[2])
+        cmd_download(args[1], cookies_browser=cookies_browser)
 
     elif command == "batch":
-        songs_file = sys.argv[2] if len(sys.argv) > 2 else "songs.txt"
+        songs_file = args[1] if len(args) > 1 else "songs.txt"
         version = check_yt_dlp()
         if not version:
             print("[!] 未安装 yt-dlp，请先执行: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
-        cmd_batch(songs_file)
+        cmd_batch(songs_file, cookies_browser=cookies_browser)
 
     elif command == "list":
         cmd_list()
