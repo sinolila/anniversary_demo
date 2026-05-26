@@ -32,26 +32,47 @@ cd new_start && python3 -m http.server 8081
 
 ## 音乐下载器
 
-使用 `music_downloader.py` 从 YouTube 下载高品质音乐（MP3 320kbps）：
+使用 `music_downloader.py` 从 YouTube 下载高品质音乐（MP3 320kbps），支持浏览器 Cookie 认证自动绕过反爬。
+
+**前置条件：** `pip install yt-dlp`（Windows 用户双击 `setup.bat` 一键配置）
+
+### 命令
 
 ```bash
-# Windows 首次使用：双击 setup.bat 配置环境
-# 或手动: pip install yt-dlp
+# 按歌手+歌名搜索下载（输入中文即可）
+python music_downloader.py yt "周杰伦 晴天"
 
-# 搜索下载
+# 关键词搜索下载第一个结果
 python music_downloader.py search "浪漫钢琴 lofi"
 
-# 从URL下载
+# 交互式搜索：列出前 10 个结果，按序号选择下载
+python music_downloader.py find "古风 纯音乐"
+
+# 从 URL 直接下载
 python music_downloader.py download "https://youtube.com/watch?v=..."
 
-# 批量下载
+# 批量下载（读取 songs.txt，每行一首）
 python music_downloader.py batch songs.txt
 
-# 查看已下载
+# 查看已下载列表
 python music_downloader.py list
 ```
 
-下载的音乐保存在 `music/` 目录，由用户自行播放或配合相册使用。
+### Cookie 认证
+
+遇到反爬（如 "Sign in to confirm you're not a bot"）时使用：
+
+```bash
+# 指定浏览器读取 Cookie
+python music_downloader.py yt "..." --cookies chrome
+python music_downloader.py find "..." --cookies firefox
+```
+
+支持：`chrome` `firefox` `brave` `edge` `chromium` `opera` `vivaldi`
+
+脚本会自动检测可用浏览器 Cookie（`find` 命令除外，搜索时不强制认证）。
+
+下载的音乐保存在 `music/` 目录，配合相册使用。
 
 ## 音乐播放
 

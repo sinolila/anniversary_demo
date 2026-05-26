@@ -88,10 +88,18 @@ index.html (单文件, Canvas 渲染引擎)
 
 ## music_downloader.py
 
-- 基于 yt-dlp
-- `search` / `download` / `batch` / `list` 四个子命令
-- 自动转 MP3 320kbps
-- 生成 `music/music_manifest.json`
+- 基于 yt-dlp，自动转 MP3 320kbps
+- 6 个子命令：
+  - `yt` — 输入「歌手 歌名」搜索下载最佳匹配
+  - `search` — 关键词搜索下载第一个结果
+  - `find` — 交互式列表选择下载（前 10 个结果）
+  - `download` — 从 URL 直接下载
+  - `batch` — 批量读取 `songs.txt` 逐行下载
+  - `list` — 列出已下载音乐
+- `--cookies` 指定浏览器 Cookie 源（chrome/firefox/brave/edge/chromium/opera/vivaldi）
+- `detect_browser_cookies()` 自动检测可用浏览器 Cookie（`find` 命令除外）
+- `build_yt_dlp_cmd()` 缓存 yt-dlp 命令路径，避免重复子进程检查
+- 下载记录保存在 `music/music_manifest.json`
 
 ## 导出系统
 
