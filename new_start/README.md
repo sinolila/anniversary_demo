@@ -32,23 +32,53 @@ cd new_start && python3 -m http.server 8081
 
 ## 音乐下载器
 
-使用 `music_downloader.py` 从 YouTube 下载高品质音乐（MP3 320kbps），支持浏览器 Cookie 认证自动绕过反爬。
+使用 `music_downloader.py` 从 YouTube 下载音乐，支持浏览器 Cookie 认证绕过反爬。
 
-**前置条件：** `pip install yt-dlp`（Windows 用户双击 `setup.bat` 一键配置）
+### 环境部署
 
-### 命令
+**第一步 — 检查 Python 版本：**
 
 ```bash
-# 按歌手+歌名搜索下载（输入中文即可）
+python3 --version   # 需要 ≥ 3.8
+```
+
+**第二步 — 安装依赖：**
+
+```bash
+# 核心依赖（必须）
+pip install yt-dlp
+
+# 可选：安装 ffmpeg 获得 MP3 320kbps 高品质
+# macOS:   brew install ffmpeg
+# Ubuntu:  sudo apt install ffmpeg
+# Windows: 下载 https://ffmpeg.org 并加入 PATH
+```
+
+没有 ffmpeg 也不影响使用，脚本会自动降级下载 m4a 格式（浏览器可正常播放）。
+
+**第三步 — 验证环境：**
+
+```bash
+# 检查 yt-dlp 是否就绪
+python3 -m yt_dlp --version   # 应输出版本号
+
+# 检查 ffmpeg（可选）
+ffmpeg -version
+```
+
+### 下载命令
+
+```bash
+# 按歌手+歌名搜索下载（推荐）
 python music_downloader.py yt "周杰伦 晴天"
+
+# 交互式搜索：列出前 10 个结果，按序号选择
+python music_downloader.py find "古风 纯音乐"
 
 # 关键词搜索下载第一个结果
 python music_downloader.py search "浪漫钢琴 lofi"
 
-# 交互式搜索：列出前 10 个结果，按序号选择下载
-python music_downloader.py find "古风 纯音乐"
-
-# 从 URL 直接下载
+# 从 YouTube URL 直接下载
 python music_downloader.py download "https://youtube.com/watch?v=..."
 
 # 批量下载（读取 songs.txt，每行一首）
@@ -60,19 +90,23 @@ python music_downloader.py list
 
 ### Cookie 认证
 
-遇到反爬（如 "Sign in to confirm you're not a bot"）时使用：
+遇到反爬（如 "Sign in to confirm you're not a bot"）时，脚本会自动检测浏览器 Cookie。也可以手动指定：
 
 ```bash
-# 指定浏览器读取 Cookie
-python music_downloader.py yt "..." --cookies chrome
-python music_downloader.py find "..." --cookies firefox
+python music_downloader.py yt "方大同 麦恩莉" --cookies chrome
+python music_downloader.py find "关键词" --cookies firefox
 ```
 
-支持：`chrome` `firefox` `brave` `edge` `chromium` `opera` `vivaldi`
+支持的浏览器：`chrome` `firefox` `brave` `edge` `chromium` `opera` `vivaldi`
 
-脚本会自动检测可用浏览器 Cookie（`find` 命令除外，搜索时不强制认证）。
+### 常见问题
 
-下载的音乐保存在 `music/` 目录，配合相册使用。
+| 现象 | 原因 | 解决 |
+|------|------|------|
+| `Non-UTF-8 code` 错误 | 文件编码损坏 | 已修复，拉取最新代码 |
+| 下载后无 MP3 只有 m4a | 未安装 ffmpeg | 安装 ffmpeg 后重新下载 |
+| `could not find cookies` | 服务器无浏览器 | 不加 `--cookies`，YouTube 公开内容可直接下载 |
+| 下载超时 | 网络不通 | 检查代理/VPN，或换个关键词重试 |
 
 ## 音乐播放
 
