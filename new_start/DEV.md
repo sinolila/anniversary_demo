@@ -93,6 +93,52 @@ index.html (单文件, Canvas 渲染引擎)
 - 自动转 MP3 320kbps
 - 生成 `music/music_manifest.json`
 
+## 导出系统
+
+### 浏览器端导出
+
+顶栏「💝 导出」按钮 → `exportGift()`：
+
+1. 从 `_CLEAN_HTML_SOURCE`（启动时捕获的 `documentElement.outerHTML`）获取页面源码
+2. `JSON.stringify` 当前 `photos[]` 和 `playlist[]` 数据（已是 dataUrl/base64）
+3. 将 `</` 转义为 `<\/` → `safeEmbedData`
+4. `lastIndexOf('</body>')` 找到真正的 HTML 闭合标签，在之前注入 `<script id="embed-data">`
+5. 生成 Blob → `<a download>` 触发下载
+
+### 离线批量导出
+
+`build_export.py` — 从磁盘文件生成自包含 HTML：
+
+- 扫描 `Saved Pictures/` 和 `music/` 目录
+- 用 Pillow 读取 EXIF 日期
+- 文件转 base64 data URL
+- 最后一位 `</body>` 之前注入 embed-data（`rfind` 避免误匹配 JS 代码中的字符串）
+- 输出 `Memory_Meteor_Shower_YYYY-MM-DD.html`
+
+### 导出文件启动
+
+`bootFromEmbed()` IIFE（`DOMContentLoaded` 事件）：
+
+- 读取 `<script id="embed-data">` 的 JSON
+- 图片：`new Image()` 预加载 → 推入 `photos[]`
+- 视频：base64 → Blob → `URL.createObjectURL()`
+- 音乐：dataUrl 直接推入 `playlist[]`
+- 调用 `spawnMeteors()` 和 `renderFilmstrip()` 启动渲染
+
+## 图片压缩
+
+导入时自动压缩（`compressImage()`）：
+
+- WebP 格式，质量 0.72，最大宽度 1600px
+- GIF 保持原格式不压缩
+- 压缩失败回退到原始 Data URL
+- 视频不压缩
+
+## 内存管理
+
+- `blobUrls[]` 追踪所有 `URL.createObjectURL()` 创建的 URL
+- `cleanup()` 在 `beforeunload` 事件中释放所有 Blob URL 并取消动画帧
+
 ## 兼容性
 
 - Chrome 90+ / Firefox 90+ / Edge 90+ / Safari 15+

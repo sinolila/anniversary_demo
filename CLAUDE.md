@@ -12,8 +12,9 @@
 件走 HTML/CSS
 
 ## 关键文件
-- `new_start/index.html` — 主程序 (Canvas 引擎 + UI)
+- `new_start/index.html` — 主程序 (Canvas 引擎 + UI + 自导出)
 - `new_start/music_downloader.py` — yt-dlp 下载器
+- `new_start/build_export.py` — 从磁盘文件批量生成自包含导出 HTML
 - `new_start/setup.bat` — Windows 一键启动
 
 ## 文档

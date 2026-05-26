@@ -61,6 +61,20 @@ python music_downloader.py list
 - 音量滑块调节
 - 键盘快捷键（预览关闭时）：空格 播放暂停 / ←→ 切歌 / M 开关音乐栏
 
+## 导出分享
+
+点击顶栏「💝 导出」按钮，将当前所有照片和音乐打包成一个**自包含 HTML 文件**。别人双击就能看到完整的流星雨画面，无需额外导入任何文件。
+
+也可以从磁盘文件批量生成导出：
+
+```bash
+python3 build_export.py
+```
+
+脚本自动扫描 `Saved Pictures/` 目录中的图片和 `music/` 目录中的音乐，生成带日期的 `Memory_Meteor_Shower_YYYY-MM-DD.html`。
+
+**注意**：导入图片时自动压缩为 WebP（1600px / 72% 质量），控制导出体积。GIF 和视频保持原格式。
+
 ## 设计
 
 - Canvas 全渲染：星空背景 / 流星照片 / 花瓣飘落 全部在 Canvas 上

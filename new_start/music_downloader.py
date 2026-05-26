@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""music_downloader.py â€” yt-dlp éŸ³ä¹ä¸‹è½½å™¨
+"""music_downloader.py ¡ª yt-dlp ÒôÀÖÏÂÔØÆ÷
 
-ä» YouTube æœç´¢/ä¸‹è½½é«˜å“è´¨éŸ³ä¹ï¼ˆMP3 320kbpsï¼‰ï¼Œä¿å­˜åˆ° music/ ç›®å½•ã€‚
+´Ó YouTube ËÑË÷/ÏÂÔØ¸ßÆ·ÖÊÒôÀÖ£¨MP3 320kbps£©£¬±£´æµ½ music/ Ä¿Â¼¡£
 
-ç”¨æ³•:
-  python music_downloader.py yt "åæ™¨å®‡ å›½ç‹ä¸ä¹ä¸"        # æœç´¢æ­Œæ‰‹+æ­Œåï¼Œä¸‹è½½æœ€ä½³éŸ³è´¨
-  python music_downloader.py --cookies chrome yt "..."   # æŒ‡å®šæµè§ˆå™¨ Cookie (é˜²éªŒè¯ç )
-  python music_downloader.py search "æµªæ¼«é’¢ç´ lofi"     # åŒä¸Šï¼ˆåˆ«åï¼‰
-  python music_downloader.py download "YouTubeé“¾æ¥"      # ä»URLä¸‹è½½
-  python music_downloader.py batch songs.txt            # æ‰¹é‡ä¸‹è½½
-  python music_downloader.py list                       # æŸ¥çœ‹å·²ä¸‹è½½
+ÓÃ·¨:
+  python music_downloader.py yt "»ª³¿Óî ¹úÍõÓëÆòØ¤"        # ËÑË÷¸èÊÖ+¸èÃû£¬ÏÂÔØ×î¼ÑÒôÖÊ
+  python music_downloader.py --cookies chrome yt "..."   # Ö¸¶¨ä¯ÀÀÆ÷ Cookie (·ÀÑéÖ¤Âë)
+  python music_downloader.py find "¸èÃû"                 # ËÑË÷²¢ÁĞ³ö½á¹û£¬½»»¥Ñ¡ÔñÏÂÔØ
+  python music_downloader.py search "ÀËÂş¸ÖÇÙ lofi"     # Í¬ÉÏ£¨±ğÃû£©
+  python music_downloader.py download "YouTubeÁ´½Ó"      # ´ÓURLÏÂÔØ
+  python music_downloader.py batch songs.txt            # ÅúÁ¿ÏÂÔØ
+  python music_downloader.py list                       # ²é¿´ÒÑÏÂÔØ
 
-ä¾èµ–: pip install yt-dlp
+ÒÀÀµ: pip install yt-dlp
 """
 
 import json
@@ -46,11 +47,11 @@ def save_manifest(manifest):
 
 
 def check_yt_dlp():
-    """æ£€æŸ¥ yt-dlp æ˜¯å¦å¯ç”¨"""
+    """¼ì²é yt-dlp ÊÇ·ñ¿ÉÓÃ"""
     try:
         result = subprocess.run(
             [sys.executable, "-m", "yt_dlp", "--version"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -60,7 +61,7 @@ def check_yt_dlp():
     try:
         result = subprocess.run(
             ["yt-dlp", "--version"],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=10
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=5
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -71,10 +72,9 @@ def check_yt_dlp():
 
 
 def detect_browser_cookies():
-    """è‡ªåŠ¨æ£€æµ‹å¯ç”¨çš„æµè§ˆå™¨ Cookie æºã€‚
-    è¿”å› (browser_name, is_available) æˆ– (None, False)
+    """×Ô¶¯¼ì²â¿ÉÓÃµÄä¯ÀÀÆ÷ Cookie Ô´¡£
+    ·µ»Ø (browser_name, is_available) »ò (None, False)
     """
-    import shutil as _shutil
     browsers = ["chrome", "firefox", "brave", "edge", "chromium", "opera", "vivaldi"]
     for browser in browsers:
         # Check if cookies-from-browser works for this browser
@@ -96,25 +96,35 @@ def detect_browser_cookies():
     return None, False
 
 def sanitize_filename(name):
-    """æ¸…ç†æ–‡ä»¶åä¸­çš„éæ³•å­—ç¬¦"""
+    """ÇåÀíÎÄ¼şÃûÖĞµÄ·Ç·¨×Ö·û"""
     name = re.sub(r'[\\/*?:"<>|]', '', name)
     name = name.strip().rstrip('.')
     return name[:120]
 
 
 def build_yt_dlp_cmd():
-    """æ„å»º yt-dlp åŸºç¡€å‘½ä»¤"""
-    if subprocess.run([sys.executable, "-m", "yt_dlp", "--version"],
-                      stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5).returncode == 0:
-        return [sys.executable, "-m", "yt_dlp"]
-    return ["yt-dlp"]
+    """¹¹½¨ yt-dlp »ù´¡ÃüÁî£¨½á¹û»º´æ£©"""
+    if hasattr(build_yt_dlp_cmd, '_cache'):
+        return build_yt_dlp_cmd._cache
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "yt_dlp", "--version"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5
+        )
+        if result.returncode == 0:
+            build_yt_dlp_cmd._cache = [sys.executable, "-m", "yt_dlp"]
+            return build_yt_dlp_cmd._cache
+    except (subprocess.SubprocessError, OSError):
+        pass
+    build_yt_dlp_cmd._cache = ["yt-dlp"]
+    return build_yt_dlp_cmd._cache
 
 
 def download_audio(query_or_url, search_mode=False, cookies_browser=None):
     """
-    ä¸‹è½½å•é¦–éŸ³ä¹ã€‚
-    cookies_browser: æµè§ˆå™¨åç§° (chrome/firefox/brave/...) ç”¨äºæå– Cookie
-    è¿”å› (title, filename) æˆ– (None, None)
+    ÏÂÔØµ¥Ê×ÒôÀÖ¡£
+    cookies_browser: ä¯ÀÀÆ÷Ãû³Æ (chrome/firefox/brave/...) ÓÃÓÚÌáÈ¡ Cookie
+    ·µ»Ø (title, filename) »ò (None, None)
     """
     ensure_dir()
     ytdlp = build_yt_dlp_cmd()
@@ -133,7 +143,7 @@ def download_audio(query_or_url, search_mode=False, cookies_browser=None):
         "--print", "title",
     ]
 
-    # æµè§ˆå™¨ Cookie è®¤è¯
+    # ä¯ÀÀÆ÷ Cookie ÈÏÖ¤
     if cookies_browser:
         cmd += ["--cookies-from-browser", cookies_browser]
 
@@ -142,8 +152,8 @@ def download_audio(query_or_url, search_mode=False, cookies_browser=None):
     else:
         cmd.append(query_or_url)
 
-    print(f"[*] {'æœç´¢' if search_mode else 'ä¸‹è½½'}: {query_or_url}")
-    print(f"[*] ç›®æ ‡ç›®å½•: {MUSIC_DIR}")
+    print(f"[*] {'ËÑË÷' if search_mode else 'ÏÂÔØ'}: {query_or_url}")
+    print(f"[*] Ä¿±êÄ¿Â¼: {MUSIC_DIR}")
     print()
 
     try:
@@ -152,7 +162,7 @@ def download_audio(query_or_url, search_mode=False, cookies_browser=None):
             err = result.stderr.strip()
             if err:
                 last_err = err.split('\n')[-1]
-                print(f"[âœ—] ä¸‹è½½å¤±è´¥: {last_err}")
+                print(f"[?] ÏÂÔØÊ§°Ü: {last_err}")
             return None, None
 
         lines = [l.strip() for l in result.stdout.split('\n') if l.strip()]
@@ -172,23 +182,23 @@ def download_audio(query_or_url, search_mode=False, cookies_browser=None):
 
         if filepath:
             filename = os.path.basename(filepath)
-            print(f"[âœ“] {title}")
-            print(f"[âœ“] å·²ä¿å­˜: music/{filename}")
+            print(f"[?] {title}")
+            print(f"[?] ÒÑ±£´æ: music/{filename}")
             return title, filename
 
-        print(f"[âœ—] æœªæ‰¾åˆ°è¾“å‡ºæ–‡ä»¶")
+        print(f"[?] Î´ÕÒµ½Êä³öÎÄ¼ş")
         return None, None
 
     except subprocess.TimeoutExpired:
-        print("[âœ—] ä¸‹è½½è¶…æ—¶ (5åˆ†é’Ÿ)")
+        print("[?] ÏÂÔØ³¬Ê± (5·ÖÖÓ)")
         return None, None
-    except Exception as e:
-        print(f"[âœ—] é”™è¯¯: {e}")
+    except (subprocess.SubprocessError, OSError) as e:
+        print(f"[?] ´íÎó: {e}")
         return None, None
 
 
 def cmd_search(query, cookies_browser=None):
-    """æœç´¢å¹¶ä¸‹è½½ç¬¬ä¸€é¦–åŒ¹é…çš„éŸ³ä¹"""
+    """ËÑË÷²¢ÏÂÔØµÚÒ»Ê×Æ¥ÅäµÄÒôÀÖ"""
     ensure_dir()
     title, filename = download_audio(query, search_mode=True, cookies_browser=cookies_browser)
     if title and filename:
@@ -202,13 +212,13 @@ def cmd_search(query, cookies_browser=None):
 
 
 def cmd_yt(query, cookies_browser=None):
-    """yt å‘½ä»¤: è¾“å…¥ã€Œæ­Œæ‰‹ æ­Œåã€ï¼Œè‡ªåŠ¨æœç´¢ YouTube ä¸‹è½½æœ€ä½³éŸ³è´¨"""
-    print(f"[yt] æœç´¢: {query}")
+    """yt ÃüÁî: ÊäÈë¡¸¸èÊÖ ¸èÃû¡¹£¬×Ô¶¯ËÑË÷ YouTube ÏÂÔØ×î¼ÑÒôÖÊ"""
+    print(f"[yt] ËÑË÷: {query}")
     cmd_search(query, cookies_browser=cookies_browser)
 
 
 def cmd_download(url, cookies_browser=None):
-    """ä» URL ä¸‹è½½éŸ³ä¹"""
+    """´Ó URL ÏÂÔØÒôÀÖ"""
     ensure_dir()
     title, filename = download_audio(url, search_mode=False, cookies_browser=cookies_browser)
     if title and filename:
@@ -221,16 +231,123 @@ def cmd_download(url, cookies_browser=None):
         save_manifest(manifest)
 
 
+def cmd_find(query, cookies_browser=None, max_results=10):
+    """ËÑË÷ÒôÀÖ²¢ÏÔÊ¾½á¹ûÁĞ±í£¬¹©ÓÃ»§Ñ¡ÔñÏÂÔØ"""
+    ensure_dir()
+    ytdlp = build_yt_dlp_cmd()
+
+    print(f"[*] ËÑË÷: {query}")
+    print(f"[*] ÕıÔÚ»ñÈ¡Ç° {max_results} ¸ö½á¹û...")
+    print()
+
+    cmd = ytdlp + [
+        "--flat-playlist",
+        "--dump-json",
+        "--no-warnings",
+        f"ytsearch{max_results}:{query}",
+    ]
+    # Don't use cookies for search ¡ª only needed for download
+
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, timeout=15
+        )
+    except subprocess.TimeoutExpired:
+        print("[?] ËÑË÷³¬Ê± ¡ª Çë¼ì²éÍøÂçÁ¬½Ó")
+        return
+    except (subprocess.SubprocessError, OSError, json.JSONDecodeError) as e:
+        print(f"[?] ËÑË÷Ê§°Ü: {e}")
+        return
+
+    if result.returncode != 0:
+        err = result.stderr.strip()
+        if err:
+            last_line = err.split('\n')[-1]
+            # Detect common network errors
+            if 'network is unreachable' in err.lower() or 'errno 101' in err.lower():
+                print("[?] ÍøÂç²»¿É´ï ¡ª ÇëÈ·ÈÏ´úÀí»òÍøÂçÁ¬½Ó")
+            else:
+                print(f"[?] ËÑË÷Ê§°Ü: {last_line}")
+        else:
+            print("[?] ËÑË÷Ê§°Ü")
+        return
+
+    entries = []
+    for line in result.stdout.strip().split('\n'):
+        if not line.strip():
+            continue
+        try:
+            info = json.loads(line)
+            title = info.get('title', '?')
+            duration = info.get('duration') or 0
+            url = info.get('url') or info.get('webpage_url', '')
+            uploader = info.get('uploader') or info.get('channel', '?')
+            dur_str = f"{int(duration // 60)}:{int(duration % 60):02d}" if duration else "?:??"
+            entries.append({
+                'title': title,
+                'duration': dur_str,
+                'uploader': uploader,
+                'url': url,
+            })
+        except (json.JSONDecodeError, KeyError):
+            continue
+
+    if not entries:
+        print("[?] Ã»ÓĞÕÒµ½½á¹û£¬Çë³¢ÊÔÆäËû¹Ø¼ü´Ê")
+        return
+
+    print(f"{'='*60}")
+    print(f"  #   {'±êÌâ':<35} {'Ê±³¤':>6}    {'À´Ô´':<15}")
+    print(f"{'='*60}")
+    for i, e in enumerate(entries, 1):
+        title = e['title'][:35] + ('¡­' if len(e['title']) > 35 else '')
+        print(f"  {i:2d}.  {title:<35} {e['duration']:>6}    {e['uploader']}")
+    print(f"{'='*60}")
+    print()
+
+    while True:
+        try:
+            choice = input(f"[?] Ñ¡Ôñ±àºÅÏÂÔØ (1-{len(entries)} / q=È¡Ïû): ").strip()
+            if choice.lower() == 'q':
+                print("[*] ÒÑÈ¡Ïû")
+                return
+            idx = int(choice)
+            if 1 <= idx <= len(entries):
+                break
+            print(f"[!] ÇëÊäÈë 1-{len(entries)} Ö®¼äµÄÊı×Ö")
+        except (ValueError, EOFError):
+            print(f"[!] ÇëÊäÈëÓĞĞ§Êı×Ö»ò q È¡Ïû")
+
+    selected = entries[idx - 1]
+    url = selected['url']
+    print()
+    print(f"[*] ÒÑÑ¡Ôñ: {selected['title']}")
+    print(f"[*] ¿ªÊ¼ÏÂÔØ...")
+    print()
+
+    title, filename = download_audio(url, search_mode=False, cookies_browser=cookies_browser)
+    if title and filename:
+        manifest = load_manifest()
+        manifest[filename] = {
+            "title": title,
+            "source": f"find: {query} ¡ú #{idx}",
+            "downloaded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        save_manifest(manifest)
+
+
 def cmd_batch(songs_file, cookies_browser=None):
-    """æ‰¹é‡ä¸‹è½½ songs.txt ä¸­çš„éŸ³ä¹"""
+    """ÅúÁ¿ÏÂÔØ songs.txt ÖĞµÄÒôÀÖ"""
     if not os.path.exists(songs_file):
-        print(f"[!] æ–‡ä»¶ä¸å­˜åœ¨: {songs_file}")
+        print(f"[!] ÎÄ¼ş²»´æÔÚ: {songs_file}")
         return
 
     with open(songs_file, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
-    print(f"[*] æ‰¹é‡ä¸‹è½½ {len(lines)} é¦–...")
+    print(f"[*] ÅúÁ¿ÏÂÔØ {len(lines)} Ê×...")
     print()
 
     for i, line in enumerate(lines, 1):
@@ -248,11 +365,11 @@ def cmd_batch(songs_file, cookies_browser=None):
             time.sleep(1)  # Rate limit
         print()
 
-    print(f"[*] æ‰¹é‡ä¸‹è½½å®Œæˆ")
+    print(f"[*] ÅúÁ¿ÏÂÔØÍê³É")
 
 
 def cmd_list():
-    """åˆ—å‡ºå·²ä¸‹è½½çš„éŸ³ä¹"""
+    """ÁĞ³öÒÑÏÂÔØµÄÒôÀÖ"""
     ensure_dir()
     manifest = load_manifest()
     files = sorted(
@@ -262,15 +379,15 @@ def cmd_list():
     )
 
     print("=" * 50)
-    print("  music/ å·²ä¸‹è½½éŸ³ä¹")
+    print("  music/ ÒÑÏÂÔØÒôÀÖ")
     print("=" * 50)
     print()
 
     if not files:
-        print("  (ç©º)")
+        print("  (¿Õ)")
         print()
-        print("[*] ä¸‹è½½éŸ³ä¹:")
-        print('  python music_downloader.py search "å…³é”®è¯"')
+        print("[*] ÏÂÔØÒôÀÖ:")
+        print('  python music_downloader.py search "¹Ø¼ü´Ê"')
         return
 
     for i, f in enumerate(files, 1):
@@ -283,14 +400,16 @@ def cmd_list():
         print(f"      {f}  |  {size_kb} KB  |  {downloaded}")
         print()
 
-    print(f"  å…± {len(files)} é¦–")
+    print(f"  ¹² {len(files)} Ê×")
 
 
 def print_usage():
-    print("ç”¨æ³•:")
-    print('  python music_downloader.py yt "åæ™¨å®‡ å›½ç‹ä¸ä¹ä¸"')
-    print('  python music_downloader.py search "æµªæ¼«é’¢ç´ lofi"')
+    print("ÓÃ·¨:")
+    print('  python music_downloader.py yt "»ª³¿Óî ¹úÍõÓëÆòØ¤"')
+    print('  python music_downloader.py search "ÀËÂş¸ÖÇÙ lofi"')
     print('  python music_downloader.py download "https://youtube.com/watch?v=..."')
+    print('  python music_downloader.py find "¸èÃû"')
+    print('  python music_downloader.py find "¸èÃû" --cookies chrome')
     print("  python music_downloader.py batch songs.txt")
     print("  python music_downloader.py list")
 
@@ -308,36 +427,36 @@ def main():
         if idx + 1 < len(args):
             cookies_browser = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
-            print(f"[*] ä½¿ç”¨ Cookie æ¥æº: {cookies_browser}")
+            print(f"[*] Ê¹ÓÃ Cookie À´Ô´: {cookies_browser}")
     elif "-c" in args:
         idx = args.index("-c")
         if idx + 1 < len(args):
             cookies_browser = args[idx + 1]
             args = args[:idx] + args[idx + 2:]
-            print(f"[*] ä½¿ç”¨ Cookie æ¥æº: {cookies_browser}")
+            print(f"[*] Ê¹ÓÃ Cookie À´Ô´: {cookies_browser}")
 
     if not args:
         print_usage()
         return
 
-    # Auto-detect browser cookies if not specified
-    if cookies_browser is None:
+    command = args[0].lower()
+
+    # Auto-detect browser cookies for download commands (skip find/search listing)
+    if cookies_browser is None and command != "find":
         detected, _ = detect_browser_cookies()
         if detected:
             cookies_browser = detected
-            print(f"[*] è‡ªåŠ¨æ£€æµ‹æµè§ˆå™¨: {detected}")
-
-    command = args[0].lower()
+            print(f"[*] ×Ô¶¯¼ì²âä¯ÀÀÆ÷: {detected}")
 
     if command in ("yt", "search"):
         if len(args) < 2:
-            print("[!] è¯·æä¾›æœç´¢å…³é”®è¯")
-            print('  ä¾‹: python music_downloader.py yt "åæ™¨å®‡ å›½ç‹ä¸ä¹ä¸"')
-            print('  ä¾‹: python music_downloader.py search "æµªæ¼«é’¢ç´ lofi"')
+            print("[!] ÇëÌá¹©ËÑË÷¹Ø¼ü´Ê")
+            print('  Àı: python music_downloader.py yt "»ª³¿Óî ¹úÍõÓëÆòØ¤"')
+            print('  Àı: python music_downloader.py search "ÀËÂş¸ÖÇÙ lofi"')
             return
         version = check_yt_dlp()
         if not version:
-            print("[!] æœªå®‰è£… yt-dlpï¼Œè¯·å…ˆæ‰§è¡Œ: pip install yt-dlp")
+            print("[!] Î´°²×° yt-dlp£¬ÇëÏÈÖ´ĞĞ: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
         if command == "yt":
@@ -347,21 +466,33 @@ def main():
 
     elif command == "download":
         if len(args) < 2:
-            print("[!] è¯·æä¾› YouTube URL")
-            print('  ä¾‹: python music_downloader.py download "https://youtube.com/watch?v=..."')
+            print("[!] ÇëÌá¹© YouTube URL")
+            print('  Àı: python music_downloader.py download "https://youtube.com/watch?v=..."')
             return
         version = check_yt_dlp()
         if not version:
-            print("[!] æœªå®‰è£… yt-dlpï¼Œè¯·å…ˆæ‰§è¡Œ: pip install yt-dlp")
+            print("[!] Î´°²×° yt-dlp£¬ÇëÏÈÖ´ĞĞ: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
         cmd_download(args[1], cookies_browser=cookies_browser)
 
-    elif command == "batch":
-        songs_file = args[1] if len(args) > 1 else "songs.txt"
+    elif command == "find":
+        if len(args) < 2:
+            print("[!] ÇëÌá¹©ËÑË÷¹Ø¼ü´Ê")
+            print('  Àı: python music_downloader.py find "ÇçÌì ÖÜ½ÜÂ×"')
+            return
         version = check_yt_dlp()
         if not version:
-            print("[!] æœªå®‰è£… yt-dlpï¼Œè¯·å…ˆæ‰§è¡Œ: pip install yt-dlp")
+            print("[!] Î´°²×° yt-dlp£¬ÇëÏÈÖ´ĞĞ: pip install yt-dlp")
+            return
+        print(f"[*] yt-dlp {version}")
+        cmd_find(args[1], cookies_browser=cookies_browser)
+
+    elif command == "batch":
+        songs_file = args[1] if len(args) > 1 else os.path.join(SCRIPT_DIR, "songs.txt")
+        version = check_yt_dlp()
+        if not version:
+            print("[!] Î´°²×° yt-dlp£¬ÇëÏÈÖ´ĞĞ: pip install yt-dlp")
             return
         print(f"[*] yt-dlp {version}")
         cmd_batch(songs_file, cookies_browser=cookies_browser)
@@ -370,7 +501,7 @@ def main():
         cmd_list()
 
     else:
-        print(f"[!] æœªçŸ¥å‘½ä»¤: {command}")
+        print(f"[!] Î´ÖªÃüÁî: {command}")
         print_usage()
 
 

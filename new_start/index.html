@@ -82,6 +82,12 @@ box-shadow: 0 4px 18px rgba(200,100,130,0.3);
 	background: rgba(255,255,255,0.06); font-size: 1rem;
 	}
 	#topbar .btn-music:hover { background: rgba(255,255,255,0.14); }
+	#topbar .btn-export {
+	background: linear-gradient(135deg, var(--gold), #d4a030);
+	color: #1a1020; font-weight: 600;
+	box-shadow: 0 4px 18px rgba(240,200,96,0.25);
+	}
+	#topbar .btn-export:hover { box-shadow: 0 6px 24px rgba(240,200,96,0.45); }
 #topbar .divider { width: 1px; height: 20px; background: var(--film-border); border-radius: 1px; }
 #topbar .title { font-size: 0.85rem; font-weight: 600; padding: 0 4px; white-space: nowrap; }
 
@@ -226,9 +232,29 @@ transition: 0.3s;
 #topbar .divider { display: none; }
 #filmstrip .thumb { width: 44px; height: 58px; border-radius: 8px; }
 }
+
+	/* ── Toast ── */
+	#toast-container {
+	position: fixed; top: 90px; left: 50%; transform: translateX(-50%);
+	z-index: 300; display: flex; flex-direction: column; align-items: center;
+	gap: 8px; pointer-events: none;
+	}
+	.toast {
+	padding: 10px 22px; border-radius: 24px;
+	background: rgba(20,16,40,0.92); color: #e8e0f0;
+	font-size: 0.84rem; backdrop-filter: blur(12px);
+	border: 1px solid rgba(255,255,255,0.1);
+	animation: toastIn 0.35s ease, toastOut 0.35s ease 2.2s forwards;
+	pointer-events: auto; white-space: nowrap;
+	}
+	@keyframes toastIn { from { opacity:0; transform:translateY(-12px); } to { opacity:1; transform:translateY(0); } }
+	@keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-8px); } }
 </style>
 </head>
 <body>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
 
 <canvas id="scene"></canvas>
 
@@ -244,6 +270,7 @@ transition: 0.3s;
 <span class="divider"></span>
 <button onclick="document.getElementById('file-input').click()" class="btn-upload">+ 上传</button>
 	<button onclick="document.getElementById('music-input').click()" class="btn-music" id="btn-music-toggle">🎵</button>
+	<button onclick="exportGift()" class="btn-export" id="btn-export">💝 导出</button>
 </div>
 <input type="file" id="file-input" multiple accept="image/*,video/*,.gif" style="display:none" onchange="handleFiles(this.files)">
 	<input type="file" id="music-input" multiple accept="audio/*" style="display:none" onchange="handleMusicFiles(this.files)">
@@ -279,6 +306,8 @@ transition: 0.3s;
 METEOR SHOWER ENGINE
 ═══════════════════════════════════════════════════════════════════ */
 
+var _CLEAN_HTML_SOURCE = document.documentElement.outerHTML;
+
 // ── Polyfill ──
 if (!CanvasRenderingContext2D.prototype.roundRect) {
 CanvasRenderingContext2D.prototype.roundRect = function(x,y,w,h,r) {
@@ -299,6 +328,7 @@ let animId = null;
 let time = 0;
 let hoveredMeteor = null;
 let mouseX = -100, mouseY = -100;
+let blobUrls = [];
 
 // DOM
 const canvas = document.getElementById('scene');
@@ -317,6 +347,7 @@ uploadHint.classList.remove('visible');
 
 const batch = [];
 for (const f of files) {
+try {
 const isVideo = f.type.startsWith('video/');
 const isGif = f.type === 'image/gif';
 const dataUrl = isVideo ? null : await readBlob(f);
@@ -325,6 +356,7 @@ let img = null, video = null;
 
 if (isVideo) {
 video = URL.createObjectURL(f);
+blobUrls.push(video);
 } else {
 img = await loadImg(dataUrl);
 }
@@ -337,6 +369,10 @@ isGif, isVideo,
 img, video,
 videoBlob: isVideo ? f : null,
 });
+} catch (err) {
+console.warn('跳过文件 ' + f.name + ': ' + err.message);
+toast('无法加载: ' + f.name);
+}
 }
 
 for (const p of batch) photos.push(p);
@@ -345,11 +381,47 @@ spawnMeteors();
 renderFilmstrip();
 }
 
-function readBlob(file) {
-return new Promise(r => { const rd = new FileReader(); rd.onload = e => r(e.target.result); rd.readAsDataURL(file); });
+async function compressImage(file, quality, maxWidth) {
+quality = quality || 0.72;
+maxWidth = maxWidth || 1600;
+return new Promise((resolve, reject) => {
+const img = new Image();
+img.onload = () => {
+let w = img.width, h = img.height;
+if (w > maxWidth) { h = h * (maxWidth / w); w = maxWidth; }
+const cv = document.createElement('canvas');
+cv.width = w; cv.height = h;
+const cctx = cv.getContext('2d');
+cctx.drawImage(img, 0, 0, w, h);
+if (file.type === 'image/gif') { resolve(cv.toDataURL()); return; }
+resolve(cv.toDataURL('image/webp', quality));
+};
+img.onerror = reject;
+const rd = new FileReader();
+rd.onload = e => { img.src = e.target.result; };
+rd.onerror = reject;
+rd.readAsDataURL(file);
+});
+}
+
+async function readBlob(file) {
+if (file.type.startsWith('image/') && file.type !== 'image/gif') {
+try { return await compressImage(file); } catch (e) { console.warn('压缩失败', e); }
+}
+return new Promise((resolve, reject) => {
+const rd = new FileReader();
+rd.onload = e => resolve(e.target.result);
+rd.onerror = () => reject(new Error('Failed to read file: ' + file.name));
+rd.readAsDataURL(file);
+});
 }
 function loadImg(src) {
-return new Promise(r => { const i = new Image(); i.onload = () => r(i); i.src = src; });
+return new Promise((resolve, reject) => {
+const i = new Image();
+i.onload = () => resolve(i);
+i.onerror = () => reject(new Error('Failed to load image: ' + src.substring(0, 60)));
+i.src = src;
+});
 }
 
 async function getExifDate(file) {
@@ -473,9 +545,6 @@ ctx.restore();
 function spawnMeteors() {
 const w = innerWidth, h = innerHeight;
 meteors = photos.map((p, i) => {
-// Spread initial positions across the sky
-const angle = (i/photos.length)*Math.PI*2 + Math.random()*0.5;
-const dist = 0.25 + Math.random()*0.5;
 return {
 photoIdx: i,
 x: w*0.1 + Math.random()*w*0.8,
@@ -784,7 +853,11 @@ return { w, h };
 }
 
 let size = resize();
-window.addEventListener('resize', () => { size = resize(); });
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+clearTimeout(resizeTimer);
+resizeTimer = setTimeout(() => { size = resize(); }, 200);
+});
 
 function loop(ms) {
 time = ms * 0.001;
@@ -803,29 +876,37 @@ animId = requestAnimationFrame(loop);
 // ═══════════════════════════════════════════════════════════════════
 // MUSIC PLAYER
 // ═══════════════════════════════════════════════════════════════════
-let playlist = [];       // [{ name, url }]
+let playlist = [];       // [{ name, dataUrl }]
 let trackIdx = -1;
 let audio = new Audio();
 audio.volume = 0.6;
 let shuffle = false;
 let loopMode = 0;       // 0=none, 1=one, 2=all
 
-function handleMusicFiles(files) {
+async function handleMusicFiles(files) {
   if (!files || !files.length) return;
   for (const f of files) {
     if (!f.type.startsWith('audio/')) continue;
-    playlist.push({ name: f.name, url: URL.createObjectURL(f) });
+    try {
+      const dataUrl = await readBlob(f);
+      playlist.push({ name: f.name, dataUrl: dataUrl });
+    } catch (e) {
+      console.warn('音乐加载失败: ' + f.name, e);
+      toast('音乐加载失败: ' + f.name);
+    }
   }
-  if (trackIdx < 0 && playlist.length > 0) { trackIdx = 0; loadTrack(); }
-  updateMusicUI();
-  document.getElementById('music-bar').classList.add('open');
-  toast('已加载 ' + playlist.length + ' 首音乐');
+  if (playlist.length > 0) {
+    if (trackIdx < 0) { trackIdx = 0; loadTrack(); }
+    updateMusicUI();
+    document.getElementById('music-bar').classList.add('open');
+    toast('已加载 ' + playlist.length + ' 首音乐');
+  }
 }
 
 function loadTrack() {
   if (trackIdx < 0 || trackIdx >= playlist.length) return;
   const wasPlaying = !audio.paused;
-  audio.src = playlist[trackIdx].url;
+  audio.src = playlist[trackIdx].dataUrl;
   audio.load();
   if (wasPlaying) audio.play().catch(() => {});
   updateMusicUI();
@@ -922,6 +1003,180 @@ String(d.getMinutes()).padStart(2,'0');
 function fmtShort(d) {
 return (d.getMonth()+1)+'/'+d.getDate();
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// CLEANUP
+// ═══════════════════════════════════════════════════════════════════
+function cleanup() {
+if (animId) { cancelAnimationFrame(animId); animId = null; }
+for (const url of blobUrls) { URL.revokeObjectURL(url); }
+blobUrls = [];
+}
+window.addEventListener('beforeunload', cleanup);
+
+	// ═══════════════════════════════════════════════════════════════════
+	// TOAST
+	// ═══════════════════════════════════════════════════════════════════
+	function toast(msg) {
+	const container = document.getElementById('toast-container');
+	if (!container) return;
+	const el = document.createElement('div');
+	el.className = 'toast';
+	el.textContent = msg;
+	container.appendChild(el);
+	setTimeout(() => { if (el.parentNode) el.remove(); }, 2800);
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// EXPORT — bundle everything into a self-contained HTML gift
+	// ═══════════════════════════════════════════════════════════════════
+	async function exportGift() {
+	if (photos.length === 0 && playlist.length === 0) {
+	toast('请先上传照片或音乐');
+	return;
+	}
+
+	toast('正在打包...');
+
+	try {
+	// 1. Photos already have dataUrl; videos need readBlob from videoBlob
+	const embedPhotos = await Promise.all(photos.map(async (p) => {
+	let videoDataUrl = null;
+	if (p.videoBlob) {
+	try { videoDataUrl = await readBlob(p.videoBlob); } catch(e) {}
+	}
+	return {
+	name: p.name, dataUrl: p.dataUrl, videoDataUrl,
+	dateTaken: p.dateTaken.toISOString(),
+	type: p.type, isGif: p.isGif, isVideo: p.isVideo,
+	};
+	}));
+
+	// 2. Music already stored as dataUrl — use directly
+	const embedMusic = playlist.map(t => ({ name: t.name, dataUrl: t.dataUrl }));
+
+	const embedData = JSON.stringify({ photos: embedPhotos, music: embedMusic });
+	const safeEmbedData = embedData.replace(/<\//g, '<\\/');
+
+	// 3. Use clean HTML source captured at page load (no XHR/fetch needed)
+	let html = _CLEAN_HTML_SOURCE || '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+	// 4. Inject embedded data before </body>
+	const dataScript = '<script id="embed-data" type="application/json">' + safeEmbedData + '</' + 'script>';
+	const lastBody = html.lastIndexOf('</body>');
+	if (lastBody !== -1) {
+	html = html.slice(0, lastBody) + dataScript + '\n</body>' + html.slice(lastBody + 7);
+	} else {
+	html += '\n' + dataScript;
+	}
+
+	// 6. Download
+	const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+	const url = URL.createObjectURL(blob);
+	const a = document.createElement('a');
+	a.href = url;
+	const now = new Date();
+	const ds = now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+
+	String(now.getDate()).padStart(2,'0');
+	a.download = 'Memory_Meteor_Shower_' + ds + '.html';
+	document.body.appendChild(a);
+	a.click();
+	document.body.removeChild(a);
+	setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+	const sizeMB = (blob.size / 1024 / 1024).toFixed(1);
+	toast('导出完成！文件大小 ' + sizeMB + ' MB，发送这个 HTML 即可');
+	} catch(e) {
+	console.error('Export failed:', e);
+	toast('导出失败: ' + e.message);
+	}
+	}
+
+	// ═══════════════════════════════════════════════════════════════════
+	// BOOT FROM EMBEDDED DATA (for exported gift HTML)
+	// Uses DOMContentLoaded so #embed-data is parsed before we read it
+	// ═══════════════════════════════════════════════════════════════════
+	document.addEventListener('DOMContentLoaded', function bootFromEmbed() {
+	const embedEl = document.getElementById('embed-data');
+	if (!embedEl || !embedEl.textContent.trim()) return;
+
+	try {
+	const data = JSON.parse(embedEl.textContent);
+
+	if (data.photos && data.photos.length) {
+	Promise.all(data.photos.map(p => new Promise(resolve => {
+	if (p.type === 'video') {
+	const mime = p.name.endsWith('.gif') ? 'image/gif' : 'video/mp4';
+	const b64 = p.videoDataUrl || p.dataUrl;
+	const blob = b64.startsWith('data:') ? base64ToBlob(b64, mime) : null;
+	const vUrl = blob ? URL.createObjectURL(blob) : b64;
+	if (vUrl.startsWith('blob:')) blobUrls.push(vUrl);
+	photos.push({
+	id: Date.now() + Math.random(),
+	name: p.name, dataUrl: p.dataUrl,
+	dateTaken: new Date(p.dateTaken),
+	type: 'video', isGif: p.isGif, isVideo: true,
+	img: null, video: vUrl, videoBlob: blob,
+	});
+	resolve();
+	} else {
+	const img = new Image();
+	img.onload = () => {
+	photos.push({
+	id: Date.now() + Math.random(),
+	name: p.name, dataUrl: p.dataUrl,
+	dateTaken: new Date(p.dateTaken),
+	type: 'image', isGif: p.isGif, isVideo: false,
+	img, video: null, videoBlob: null,
+	});
+	resolve();
+	};
+	img.onerror = () => resolve();
+	img.src = p.dataUrl;
+	}
+	}))).then(() => {
+	photos.sort((a, b) => a.dateTaken - b.dateTaken);
+	spawnMeteors();
+	renderFilmstrip();
+	uploadHint.classList.remove('visible');
+	});
+	}
+
+	if (data.music && data.music.length) {
+	data.music.forEach(t => {
+	playlist.push({ name: t.name, dataUrl: t.dataUrl });
+	});
+	if (trackIdx < 0) { trackIdx = 0; loadTrack(); }
+	updateMusicUI();
+	document.getElementById('music-bar').classList.add('open');
+	}
+
+	// Clean up the embed tag after loading
+	embedEl.remove();
+	} catch(e) {
+	console.error('Embed boot failed:', e);
+	}
+	});
+
+	function base64ToBlob(dataUrl, mime) {
+	const parts = dataUrl.split(',');
+	const bin = atob(parts[1]);
+	const bytes = new Uint8Array(bin.length);
+	for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+	return new Blob([bytes], { type: mime });
+	}
+
+
+// ═══════════════════════════════════════════════════════════════════
+// DRAG & DROP
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('dragover', e => { e.preventDefault(); e.stopPropagation(); });
+document.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); });
+document.addEventListener('drop', e => {
+e.preventDefault(); e.stopPropagation();
+const files = e.dataTransfer.files;
+if (files && files.length) handleFiles(files);
+});
 
 // ═══════════════════════════════════════════════════════════════════
 // BOOT
